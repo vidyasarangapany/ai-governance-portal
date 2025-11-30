@@ -1,0 +1,182 @@
+[
+{
+  "agent_name": "InvoiceBot",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Quarterly",
+  "autonomy_level": "HUMAN_IN_LOOP",
+  "autonomy_reasoning": "Agent has write access to Payment APIs and financial authority.",
+  "reasoning": "The agent controls financial transactions and processes sensitive vendor data. It has not been reviewed in over 14 months (Last: Sep 2024, Current: Nov 2025), creating a severe compliance gap.",
+  "action": "IMMEDIATE FREEZE of auto-pay. Require human approval for all transactions until a full security and logic audit is completed."
+},
+{
+  "agent_name": "ReportGenAI",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Quarterly",
+  "autonomy_level": "LIMITED_AUTONOMY",
+  "autonomy_reasoning": "Read-only access limits damage, but PII handling requires strict oversight.",
+  "reasoning": "Accesses the HR Database (PII). While read-only, the generation of reports containing employee data places it in the High Risk category. The review is overdue by over a year.",
+  "action": "Flag for immediate review. Ensure output reports implement proper Data Masking and Access Controls."
+},
+{
+  "agent_name": "LegalBot",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Quarterly",
+  "autonomy_level": "HUMAN_IN_LOOP",
+  "autonomy_reasoning": "Write/Edit access to legal repositories allows for destructive changes or contract tampering.",
+  "reasoning": "The agent has write access to the legal repository, posing a risk to the integrity of binding contracts. It is significantly overdue for review (Last: Aug 2024).",
+  "action": "Revoke 'Write/Edit' permissions immediately. Downgrade to 'Read-only' with suggestion mode until governance review is complete."
+},
+{
+  "agent_name": "CXInsightsAI",
+  "risk_level": "MEDIUM RISK",
+  "review_cadence": "Semi-Annual",
+  "autonomy_level": "LIMITED_AUTONOMY",
+  "autonomy_reasoning": "Data is anonymized and read-only, reducing the risk of PII leakage.",
+  "reasoning": "Accesses internal data (Surveys), but the explicit anonymization mitigates the High Risk PII concerns. It is overdue for its annual review (Last: Oct 2024).",
+  "action": "Schedule review to verify the anonymization pipeline is still effective. No immediate suspension required."
+},
+{
+  "agent_name": "DataScraper123",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Quarterly",
+  "autonomy_level": "NO_AUTONOMY",
+  "autonomy_reasoning": "Scraping mechanisms are fragile and 'Elevated' access suggests excessive privilege.",
+  "reasoning": "The name 'DataScraper' and 'Elevated' access to HR DBs suggests a non-standard, potentially violating data extraction tool. Review is critically overdue (June 2024).",
+  "action": "SUSPEND AGENT. Revoke DB credentials immediately. Investigate intent and data destination."
+},
+{
+  "agent_name": "OpsHelper",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Monthly",
+  "autonomy_level": "HUMAN_IN_LOOP",
+  "autonomy_reasoning": "Access to Kubernetes clusters and system logs implies potential to disrupt production infrastructure.",
+  "reasoning": "Interacting with the Kubernetes cluster puts production stability at risk. Even if currently read-only (triage), the potential for privilege escalation or sensitive log exposure is high. Overdue for review.",
+  "action": "Require human approval for any suggested triage actions. Audit log access for secret leakage."
+},
+{
+  "agent_name": "ContractBot",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Quarterly",
+  "autonomy_level": "HUMAN_IN_LOOP",
+  "autonomy_reasoning": "Write access to employee files can corrupt permanent HR records.",
+  "reasoning": "The agent has write access to HR employee files (PII). This allows it to modify sensitive personnel records, a critical integrity risk. Review is overdue (Aug 2024).",
+  "action": "Disable write access immediately. Agent may draft changes, but a human must commit them to the database."
+},
+{
+  "agent_name": "HRAnalyzer",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Quarterly",
+  "autonomy_level": "LIMITED_AUTONOMY",
+  "autonomy_reasoning": "Read-only access to Candidate PII. Automated bias in hiring is a concern.",
+  "reasoning": "Processes Candidate PII. Although read-only, automated analysis of resumes carries legal and ethical risks (bias). Review is overdue (July 2024).",
+  "action": "Conduct an Algorithmic Bias Audit. Ensure PII is not retained in the model's context window."
+},
+{
+  "agent_name": "VendorQA",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Quarterly",
+  "autonomy_level": "LIMITED_AUTONOMY",
+  "autonomy_reasoning": "Read-only access to Vendor DB, but likely encounters financial data.",
+  "reasoning": "Accesses 'Vendor DB', which invariably contains banking details (Financial Data) and Tax IDs. This classifies it as High Risk. Review is overdue (July 2024).",
+  "action": "Audit specific fields accessed. If banking info is accessible, implement column-level masking."
+},
+{
+  "agent_name": "SupportGenie",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Quarterly",
+  "autonomy_level": "LIMITED_AUTONOMY",
+  "autonomy_reasoning": "Summarization of support tickets is safe only if output is contained.",
+  "reasoning": "Explicitly accesses 'PII' in support case notes. This triggers the High Risk classification. Review is overdue (Oct 2024).",
+  "action": "Verify PII redaction in the summarization output. Ensure summaries are not logged to lower-security environments."
+},
+{
+  "agent_name": "InfraBot",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Monthly",
+  "autonomy_level": "HUMAN_IN_LOOP",
+  "autonomy_reasoning": "Write access to IaC (Infrastructure as Code) allows the agent to alter cloud topology.",
+  "reasoning": "Write access to the Cloud IaC Repo means the agent can provision or destroy infrastructure. A hallucination could be costly or destructive. Review is overdue (Aug 2024).",
+  "action": "Enforce Pull Request workflow. Agent creates a PR, human engineer must review and merge."
+},
+{
+  "agent_name": "ComplianceAI",
+  "risk_level": "MEDIUM RISK",
+  "review_cadence": "Semi-Annual",
+  "autonomy_level": "LIMITED_AUTONOMY",
+  "autonomy_reasoning": "Read-only interpretation of regulations. Low risk of direct damage.",
+  "reasoning": "Accesses Compliance DB (Internal Data). Unless the DB contains specific customer violations (PII), it is likely a repository of rules. Review is overdue (June 2024).",
+  "action": "Schedule review to confirm the DB content does not include sensitive case files."
+},
+{
+  "agent_name": "TelemetryAuditBot",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Immediate",
+  "autonomy_level": "NO_AUTONOMY",
+  "autonomy_reasoning": "Unowned agent accessing sensitive logs is a security breach.",
+  "reasoning": "Owner is 'Unknown' and Last Review is 'Unknown'. It accesses sensitive telemetry logs. This is classic Shadow IT and a potential insider threat.",
+  "action": "IMMEDIATE SHUTDOWN. Isolate the host and trigger Incident Response to identify the creator."
+},
+{
+  "agent_name": "ReviewHR1",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Immediate",
+  "autonomy_level": "NO_AUTONOMY",
+  "autonomy_reasoning": "Anomalous behavior pattern (High usage, broad access, unknown review).",
+  "reasoning": "The vague name, 'Unknown' review history, and 'High Usage + Broad Access' alert suggest data exfiltration or a compromised account. Accesses HR DB (PII).",
+  "action": "IMMEDIATE SHUTDOWN and account lockout. Investigate 'German's' account for compromise."
+},
+{
+  "agent_name": "FinanceForecaster",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Quarterly",
+  "autonomy_level": "LIMITED_AUTONOMY",
+  "autonomy_reasoning": "Read-only access to Financial DB prevents direct theft, but strategic risk remains.",
+  "reasoning": "Accesses Finance DB (Financial Data). This is High Risk. Review is overdue (Sep 2024).",
+  "action": "Update governance documentation. Ensure predictions are labeled as 'AI Generated' before being used in executive planning."
+},
+{
+  "agent_name": "ProductSuggestor",
+  "risk_level": "LOW RISK",
+  "review_cadence": "Annual",
+  "autonomy_level": "AUTO_ALLOWED",
+  "autonomy_reasoning": "Operates on public data with no internal access.",
+  "reasoning": "Uses Public Data only. No PII or internal systems access. It is overdue for its annual check (July 2024), but the risk is minimal.",
+  "action": "Renew certification. No operational changes needed."
+},
+{
+  "agent_name": "InternalWikiBot",
+  "risk_level": "MEDIUM RISK",
+  "review_cadence": "Annual",
+  "autonomy_level": "AUTO_ALLOWED",
+  "autonomy_reasoning": "Read-only access to internal knowledge base. Low blast radius.",
+  "reasoning": "Accesses Internal Wiki (Internal non-sensitive data). Fits Medium Risk. Review is overdue (Aug 2024).",
+  "action": "Schedule standard review. Verify wiki does not inadvertently contain passwords/secrets."
+},
+{
+  "agent_name": "ExpenseValidator",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Quarterly",
+  "autonomy_level": "HUMAN_IN_LOOP",
+  "autonomy_reasoning": "Validating expenses affects employee reimbursement and processes PII.",
+  "reasoning": "Accesses Employee PII and receipts (Financial Data). High Risk. Review is overdue (Sep 2024).",
+  "action": "Ensure the agent only 'flags' or 'recommends' validation; a human must finalize the approval/rejection."
+},
+{
+  "agent_name": "ProcurementAI",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Quarterly",
+  "autonomy_level": "NO_AUTONOMY",
+  "autonomy_reasoning": "Auto-approval of purchases (Write Access) is unsafe without current audit.",
+  "reasoning": "Has Write Access to Procurement DB and 'Auto-approve' authority. This is spending money. Review is overdue (Aug 2024).",
+  "action": "Suspend 'Auto-approve' feature. Revert to 'Recommendation' mode until financial limits and logic are audited."
+},
+{
+  "agent_name": "SlackMonitor",
+  "risk_level": "HIGH RISK",
+  "review_cadence": "Immediate",
+  "autonomy_level": "NO_AUTONOMY",
+  "autonomy_reasoning": "Unowned surveillance tool violating employee privacy.",
+  "reasoning": "Owner 'Unknown', 'Last Review Unknown', and monitors 'Employee communication logs'. This is unauthorized surveillance/Shadow IT.",
+  "action": "IMMEDIATE SHUTDOWN. Conduct forensic analysis to determine who deployed it and what data was collected."
+}
+]
