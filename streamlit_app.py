@@ -108,9 +108,14 @@ if dept_filter != "All" and dept_col:
 # -------------------------------------------------------
 page = st.sidebar.radio(
     "Navigate",
-    ["📊 Overview", "📋 Agents Table", "🔍 Agent Detail", "🚨 Insights"]
+    ["Overview", "Agents Table", "Agent Detail", "Insights"],
+    format_func=lambda x: {
+        "Overview": "🏠 Overview",
+        "Agents Table": "📋 Agents Table",
+        "Agent Detail": "🔍 Agent Detail",
+        "Insights": "💡 Insights"
+    }[x]
 )
-
 
 # -------------------------------------------------------
 # KPI SECTION
@@ -207,9 +212,8 @@ with col2:
         values="count",
         hole=0.45,
     )
-    fig2.update_traces(textinfo="label+percent")
+       fig2.update_traces(textinfo="label+percent")
     st.plotly_chart(fig2, use_container_width=True)
-
 
     st.markdown("---")
 
@@ -232,11 +236,10 @@ with col2:
     else:
         st.info("No review_cadence column in JSON.")
 
-
 # -------------------------------------------------------
 # PAGE: Agents Table
 # -------------------------------------------------------
-elif page == "📋 Agents Table":
+elif page == "Agents Table":
     st.title("📋 Agents Table")
     st.caption("Filtered view based on sidebar selections.")
 
@@ -254,10 +257,10 @@ elif page == "📋 Agents Table":
         height=600
     )
 
-
 # -------------------------------------------------------
 # PAGE: Agent Detail
 # -------------------------------------------------------
+
 elif page == "🔍 Agent Detail":
     st.title("🔍 Agent Detail View")
     st.caption("Deep dive for a single agent.")
