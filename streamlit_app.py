@@ -173,11 +173,26 @@ if page == "📊 Overview":
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    # Pie chart: Risk distribution
-    with col2:
-       # Pie chart: Risk breakdown
+   # Pie chart: Risk breakdown
 with col2:
     st.subheader("Risk Breakdown")
+
+    risk_counts = (
+        df["risk_level"]
+        .value_counts()
+        .reset_index()
+        .rename(columns={"index": "risk_level", "risk_level": "count"})
+    )
+
+    fig2 = px.pie(
+        risk_counts,
+        names="risk_level",
+        values="count",
+        hole=0.45,
+    )
+    fig2.update_traces(textinfo="label+percent")
+    st.plotly_chart(fig2, use_container_width=True)
+
 
     risk_counts = (
         df["risk_level"]
