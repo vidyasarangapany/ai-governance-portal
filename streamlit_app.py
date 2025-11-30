@@ -147,6 +147,9 @@ def render_kpis():
 # -------------------------------------------------------
 # PAGE: Overview
 # -------------------------------------------------------
+# -------------------------------------------------------
+# PAGE: Overview
+# -------------------------------------------------------
 if page == "📊 Overview":
     st.title("🛡️ AI Agent Governance Portal")
     st.caption("Executive dashboard for AI agent risk, autonomy, and governance posture.")
@@ -178,42 +181,25 @@ if page == "📊 Overview":
         )
         st.plotly_chart(fig, use_container_width=True)
 
-   # Pie chart: Risk breakdown
-with col2:
-    st.subheader("Risk Breakdown")
+    # Pie chart: Risk Breakdown
+    with col2:
+        st.subheader("Risk Breakdown")
 
-    risk_counts = (
-        df["risk_level"]
-        .value_counts()
-        .reset_index()
-        .rename(columns={"index": "risk_level", "risk_level": "count"})
-    )
+        risk_counts = (
+            df["risk_level"]
+            .value_counts()
+            .reset_index()
+            .rename(columns={"index": "risk_level", "risk_level": "count"})
+        )
 
-    fig2 = px.pie(
-        risk_counts,
-        names="risk_level",
-        values="count",
-        hole=0.45,
-    )
-    fig2.update_traces(textinfo="label+percent")
-    st.plotly_chart(fig2, use_container_width=True)
-
-
-    risk_counts = (
-        df["risk_level"]
-        .value_counts()
-        .reset_index()
-        .rename(columns={"index": "risk_level", "risk_level": "count"})
-    )
-
-    fig2 = px.pie(
-        risk_counts,
-        names="risk_level",
-        values="count",
-        hole=0.45,
-    )
-       fig2.update_traces(textinfo="label+percent")
-    st.plotly_chart(fig2, use_container_width=True)
+        fig2 = px.pie(
+            risk_counts,
+            names="risk_level",
+            values="count",
+            hole=0.45,
+        )
+        fig2.update_traces(textinfo="label+percent")
+        st.plotly_chart(fig2, use_container_width=True)
 
     st.markdown("---")
 
@@ -239,7 +225,7 @@ with col2:
 # -------------------------------------------------------
 # PAGE: Agents Table
 # -------------------------------------------------------
-elif page == "Agents Table":
+elif page == "📋 Agents Table":
     st.title("📋 Agents Table")
     st.caption("Filtered view based on sidebar selections.")
 
@@ -248,35 +234,8 @@ elif page == "Agents Table":
 
     display_cols = [
         c for c in filtered.columns
-        if c not in ["reasoning", "autonomy_reasoning", "action", "risk_score"]
-    ]
+        if c not in ["reasoning]()
 
-    st.dataframe(
-        filtered[display_cols].sort_values(by="risk_score", ascending=False),
-        use_container_width=True,
-        height=600
-    )
-
-# -------------------------------------------------------
-# PAGE: Agent Detail
-# -------------------------------------------------------
-
-elif page == "🔍 Agent Detail":
-    st.title("🔍 Agent Detail View")
-    st.caption("Deep dive for a single agent.")
-
-    render_kpis()
-    st.markdown("---")
-
-    agent_list = filtered["agent_name"].unique().tolist()
-    if not agent_list:
-        st.info("No agents available for selected filters.")
-    else:
-        selected = st.selectbox("Choose an agent", agent_list)
-        row = filtered[filtered["agent_name"] == selected].iloc[0]
-
-        st.markdown(f"### 🧩 {row['agent_name']}")
-        c1, c2, c3 = st.columns(3)
         c1.metric("Risk Level", row["risk_level"])
         c2.metric("Autonomy", row["autonomy_level"])
         c3.metric("Review Cadence", row.get("review_cadence", "N/A"))
