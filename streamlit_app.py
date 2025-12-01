@@ -174,21 +174,36 @@ if page == "🏠 Overview":
     with colB:
         st.subheader("Risk Breakdown")
 
-        risk_counts = (
-            df["risk_level"]
-            .value_counts()
-            .reset_index()
-            .rename(columns={"index": "risk_level", "risk_level": "count"})
-        )
+   # -----------------------------------------------
+# SAFE PIE CHART (Prevents Plotly DuplicateError)
+# -----------------------------------------------
 
-        fig_pie = px.pie(
-            risk_counts,
-            names="risk_level",
-            values="count",
-            title="Risk Breakdown",
-            hole=0.45
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
+risk_counts = (
+    df["risk_level"]
+    .value_counts()
+    .reset_index()
+    .rename(columns={"index": "risk_level", "risk_level": "count"})
+)
+
+fig_pie = px.pie(
+    data_frame=risk_counts,
+    names="risk_level",
+    values="count",
+    hole=0.45,
+)
+
+fig_pie.update_traces(
+    textinfo="label+percent",
+    pull=[0.05] * len(risk_counts)
+)
+
+fig_pie.update_layout(
+    title="Risk Level Breakdown",
+    legend_title="Risk Level"
+)
+
+st.plotly_chart(fig_pie, use_container_width=True)
+
 
 # -----------------------------------------------------------
 # PAGE: INSIGHTS
