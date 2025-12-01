@@ -561,6 +561,7 @@ elif page == "💡 Insights":
 
     st.subheader("Executive-ready talking points")
     st.markdown(
+    st.markdown(
         """
 - **Single governance layer**: This portal acts as the *control tower* for all AI agents across business units.  
 - **Risk + Autonomy + Lifecycle**: Every agent is tracked across *risk level*, *autonomy mode*, and *lifecycle state*.  
