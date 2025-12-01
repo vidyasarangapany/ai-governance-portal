@@ -310,18 +310,7 @@ if page == "Overview":
             .rename(columns={"index": "risk_level", "risk_level": "count"})
         )
 
-        if not risk_counts.empty:
-            fig2 = px.pie(
-                risk_counts,
-                names="risk_level",
-                values="count",
-                hole=0.45,
-            )
-            fig2.update_traces(textinfo="label+percent")
-            st.plotly_chart(fig2, use_container_width=True)
-        else:
-            st.info("No risk data available for breakdown.")
-
+        
     st.markdown("---")
 
     # Review cadence overview
