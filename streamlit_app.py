@@ -561,20 +561,21 @@ elif page == "💡 Insights":
     st.title("💡 Governance Insights & Architecture")
 
     st.subheader("Executive-ready talking points")
-   st.markdown(
-    """
-- **Single governance layer**: This portal acts as the *control tower* for all AI agents – regardless of which business unit created them.
+    st.markdown(
+        """
+- **Single governance layer**: This portal acts as the *control tower* for all AI agents across business units.
 - **Risk + Autonomy + Lifecycle**: Every agent is tracked across *risk level*, *autonomy mode*, and *lifecycle state*.
-- **Synthetic review cadence engine**: Today it's demo data, but the same logic can plug into real review dates from ITSM/GRC.
-- **Ready for multi-portal integration**: Security, HR/Business, and IT Admin portals can all register their agents into a single governance hub.
-    """
-)
+- **Synthetic review cadence engine**: Today it's demo data, but real review schedules can plug in automatically.
+- **Ready for enterprise integration**: Security, HR, and IT portals can integrate with this governance engine.
 
-   st.markdown("---")
-st.subheader("High-level Architecture (Mermaid diagram)")
+        """
+    )
 
-st.markdown(
-    """
+    st.markdown("---")
+    st.subheader("High-level Architecture (Mermaid diagram)")
+
+    st.markdown(
+        """
 Paste this into any Mermaid-compatible tool (e.g. mermaid.live, Notion, many slide tools) to generate a diagram:
 
 ```mermaid
