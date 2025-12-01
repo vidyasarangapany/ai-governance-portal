@@ -394,12 +394,27 @@ They usually:
         else:
             risk_df = pd.DataFrame(risk_counts)
 
-            fig_pie = px.pie(
-                risk_df,
-                names="risk_level",
-                values="count",
-                hole=0.45,
-            )
+         # --- Risk Breakdown Pie (Narwhals-safe Pandas conversion) ---
+if not risk_df.empty:
+    risk_pd = risk_df.to_pandas()   # 🔥 CRITICAL FIX
+
+    fig_pie = px.pie(
+        risk_pd,
+        names="risk_level",
+        values="count",
+        hole=0.45,
+        color="risk_level",
+        color_discrete_map={
+            "HIGH RISK": "#d62728",
+            "MEDIUM RISK": "#ff7f0e",
+            "LOW RISK": "#2ca02c",
+        },
+    )
+    fig_pie.update_traces(textinfo="label+percent")
+    st.plotly_chart(fig_pie, use_container_width=True)
+else:
+    st.info("No risk data available for current filters.")
+
             fig_pie.update_traces(textinfo="label+percent")
             st.plotly_chart(fig_pie, use_container_width=True)
 
