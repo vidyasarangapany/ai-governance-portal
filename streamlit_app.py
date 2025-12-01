@@ -438,7 +438,8 @@ if not risk_df.empty:
 else:
     st.info("No risk data available for current filters.")
 
-            fig_pie.update_traces(textinfo="label+percent")
+    fig_pie.update_traces(textinfo="label+percent")
+
             st.plotly_chart(fig_pie, use_container_width=True)
 
     st.markdown(
