@@ -481,28 +481,28 @@ def render_lifecycle_timeline(df):
         st.info("No agents available under the current filters.")
         return
 
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------
     # Executive Summary Metrics
-    # ---------------------------------------------------------
-    st.subheader("📌 Executive Summary")
+    # -------------------------------------------------------------
+    st.subheader("⭐ Executive Summary")
 
     total_onboarded = df.shape[0]
-    deployed_90 = df[df['lifecycle_state'] == "Deployed"].shape[0]
-    decommissioned_90 = df[df['lifecycle_state'] == "Decommissioned"].shape[0]
-    testing = df[df['lifecycle_state'] == "Testing"].shape[0]
+    deployed_90 = df[df["lifecycle_state"] == "Deployed"].shape[0]
+    decommissioned_90 = df[df["lifecycle_state"] == "Decommissioned"].shape[0]
+    testing = df[df["lifecycle_state"] == "Testing"].shape[0]
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("🟢 Total Agents (90 Days)", total_onboarded)
+    c1.metric("🟦 Total Agents (90 Days)", total_onboarded)
     c2.metric("🚀 Deployed (90 Days)", deployed_90)
     c3.metric("🗑️ Decommissioned", decommissioned_90)
-    c4.metric("🟡 In Testing", testing)
+    c4.metric("🧪 In Testing", testing)
 
     st.divider()
 
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------
     # Timeline (Gantt-like horizontal chart)
-    # ---------------------------------------------------------
-    st.subheader("⏳ Agent Lifecycle Progression Timeline")
+    # -------------------------------------------------------------
+    st.subheader("📈 Agent Lifecycle Progression Timeline")
 
     # Normalize date columns
     df = df.copy()
@@ -533,83 +533,59 @@ def render_lifecycle_timeline(df):
 
     timeline_df = pd.DataFrame(timeline_rows)
 
-    if not timeline_df.empty:
-        fig = px.scatter(
-            timeline_df,
-            x="Date",
-            y="Agent",
-            color="State",
-            title="Agent Lifecycle Timeline",
-            size_max=12,
-            color_discrete_map={
-                "Requested": "#b0b0b0",
-                "Approved": "#82b1ff",
-                "Testing": "#ffd54f",
-                "Deployed": "#66bb6a",
-            }
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Not enough lifecycle date information to render timeline.")
+    if timeline_df.empty:
+        st.info("No lifecycle dates available to generate a timeline.")
+        return
+
+    # Plot using Plotly
+    fig = px.scatter(
+        timeline_df,
+        x="Date",
+        y="Agent",
+        color="State",
+        symbol="State",
+        title="Lifecycle Timeline (Requested → Approved → Testing → Deployed)",
+        height=600,
+    )
+
+    fig.update_layout(
+        xaxis_title="Date",
+        yaxis_title="Agent",
+        legend_title="Lifecycle State",
+        template="plotly_white"
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
 
-    # ---------------------------------------------------------
-    # Lifecycle State Distribution
-    # ---------------------------------------------------------
-    st.subheader("📈 Lifecycle State Distribution")
+    # -------------------------------------------------------------
+    # Lifecycle Events Log
+    # -------------------------------------------------------------
+    st.subheader("📝 Lifecycle Events Log (Audit Trail)")
 
-    counts = (
-        df["lifecycle_state"]
-        .value_counts()
-        .reset_index()
-        .rename(columns={"index": "lifecycle_state", "lifecycle_state": "count"})
-    )
-
-    fig2 = px.bar(
-        counts,
-        x="lifecycle_state",
-        y="count",
-        title="Lifecycle State Breakdown",
-        text_auto=True,
-        color="lifecycle_state",
-        color_discrete_sequence=px.colors.qualitative.Set2,
-    )
-    st.plotly_chart(fig2, use_container_width=True)
-
-    st.divider()
-
-    # ---------------------------------------------------------
-    # Lifecycle Event Log (Audit)
-    # ---------------------------------------------------------
-    st.subheader("📜 Lifecycle Audit Log")
-
-    event_cols = ["agent_name", "lifecycle_state", "last_reviewed", "next_review_due", "review_cadence"]
-    st.dataframe(df[event_cols].sort_values("next_review_due"), use_container_width=True)
+    log_df = timeline_df.sort_values("Date")
+    st.dataframe(log_df, use_container_width=True)
 
     st.download_button(
-        "⬇️ Download Audit Log (CSV)",
-        df[event_cols].to_csv(index=False),
-        "lifecycle_audit_log.csv",
-        "text/csv"
+        "⬇️ Download Lifecycle Events Log (CSV)",
+        log_df.to_csv(index=False),
+        mime="text/csv"
     )
 
-    st.divider()
-
-    # ---------------------------------------------------------
-    # Executive Takeaway
-    # ---------------------------------------------------------
-    st.subheader("🧠 Executive Takeaway")
+    # -------------------------------------------------------------
+    # Director-Level Takeaway
+    # -------------------------------------------------------------
+    st.subheader("🎯 Executive Takeaway")
 
     st.markdown("""
-    The lifecycle data highlights:
-    - **Deployment velocity** is stable with strong onboarding volume.
-    - **Testing bottlenecks**: Agents stalled in testing >30 days indicate security review delays.
-    - **Governance gaps**: Several agents have overdue reviews requiring escalation.
-    - **Decommissioning discipline** is healthy with full audit trails.
+    The lifecycle view highlights agent velocity, testing delays, and deployment throughput.
+    Use this to identify:
+    - **Approval bottlenecks**
+    - **Slow testing cycles**
+    - **Dropped or stalled agents**
+    - **Deployment readiness**
     """)
-
-
 
 def render_policy_simulator(df_filtered):
     st.title("Policy Simulator")
