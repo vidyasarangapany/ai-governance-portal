@@ -567,7 +567,6 @@ elif page == "💡 Insights":
 - **Risk + Autonomy + Lifecycle**: Every agent is tracked across *risk level*, *autonomy mode*, and *lifecycle state*.
 - **Synthetic review cadence engine**: Today it's demo data, but real review schedules can plug in automatically.
 - **Ready for enterprise integration**: Security, HR, and IT portals can integrate with this governance engine.
-
         """
     )
 
@@ -576,7 +575,7 @@ elif page == "💡 Insights":
 
     st.markdown(
         """
-Paste this into any Mermaid-compatible tool (e.g. mermaid.live, Notion, many slide tools) to generate a diagram:
+Paste this into any Mermaid-compatible tool (mermaid.live, Notion, Obsidian) to generate a diagram:
 
 ```mermaid
 flowchart LR
@@ -598,10 +597,10 @@ flowchart LR
     end
 
     subgraph Integrations[Enterprise Integrations]
-        IAM[ IAM / PAM Systems ]
-        ITSM[ ITSM / Ticketing ]
-        GRC[ GRC / Compliance Repository ]
-        Store[ Data Lake / Audit Store ]
+        IAM[IAM / PAM Systems]
+        ITSM[ITSM / Ticketing]
+        GRC[GRC / Compliance Repository]
+        Store[Data Lake / Audit Store]
     end
 
     GJSON --> GovernancePortal
