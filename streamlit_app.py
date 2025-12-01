@@ -58,7 +58,11 @@ else:
 df = pd.DataFrame(data)
 
 # Filters
-risk_filter = st.sidebar.selectbox("Filter by Risk Level", ["All"] + sorted(df["risk"].unique()))
+risk_filter = st.sidebar.selectbox(
+    "Filter by Risk Level",
+    ["All"] + sorted(df["risk_level"].dropna().unique())
+)
+
 aut_filter = st.sidebar.selectbox("Filter by Autonomy Level", ["All"] + sorted(df["autonomy"].unique()))
 life_filter = st.sidebar.selectbox("Filter by Lifecycle State", ["All"] + sorted(df["lifecycle"].unique()))
 
@@ -287,7 +291,8 @@ elif page == "Agent Detail":
     colA, colB = st.columns(2)
     with colA:
         st.markdown(f"**Owner:** `{row['owner']}`")
-        st.markdown(f"**Risk:** `{row['risk']}`")
+        st.markdown(f"**Risk:** `{row['risk_level']}`")
+
         st.markdown(f"**Autonomy:** `{row['autonomy']}`")
     with colB:
         st.markdown(f"**Lifecycle:** `{row['lifecycle']}`")
@@ -316,13 +321,13 @@ elif page == "Insights":
     • Low risk agents typically represent automation of low-impact workflows.  
     """)
 
-    risk_counts = df["risk"].value_counts().reset_index()
-    risk_counts.columns = ["risk", "count"]
+    risk_counts = df["risk_level"].value_counts().reset_index()
+    risk_counts.columns = ["risk_level", "count"]
     fig_insight_risk = px.bar(
         risk_counts,
-        x="risk",
+        x="risk_level",
         y="count",
-        color="risk",
+        color="risk_level",
         title="Risk Distribution"
     )
     st.plotly_chart(fig_insight_risk, use_container_width=True)
