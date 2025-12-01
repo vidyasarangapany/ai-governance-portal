@@ -561,20 +561,20 @@ elif page == "💡 Insights":
     st.title("💡 Governance Insights & Architecture")
 
     st.subheader("Executive-ready talking points")
-    st.markdown(
-        """
-- **Single governance layer**: This portal acts as the *control tower* for all AI agents – regardless of which business or IT portal owns them.
-- **Risk + Autonomy + Lifecycle**: Every agent is tracked across *risk level*, *autonomy mode*, and *lifecycle state* so you can prioritise reviews on the right things.
-- **Synthetic review cadence engine**: Today it's demo data, but the same logic can plug into real review dates from ITSM/IRM tools.
-- **Ready for multi-portal integration**: Security, HR/Business, and IT Admin portals can all register their agents into this shared catalogue.
-        """
-    )
+   st.markdown(
+    """
+- **Single governance layer**: This portal acts as the *control tower* for all AI agents – regardless of which business unit created them.
+- **Risk + Autonomy + Lifecycle**: Every agent is tracked across *risk level*, *autonomy mode*, and *lifecycle state*.
+- **Synthetic review cadence engine**: Today it's demo data, but the same logic can plug into real review dates from ITSM/GRC.
+- **Ready for multi-portal integration**: Security, HR/Business, and IT Admin portals can all register their agents into a single governance hub.
+    """
+)
 
-    st.markdown("---")
-    st.subheader("High-level Architecture (Mermaid diagram)")
+   st.markdown("---")
+st.subheader("High-level Architecture (Mermaid diagram)")
 
-    st.markdown(
-        """
+st.markdown(
+    """
 Paste this into any Mermaid-compatible tool (e.g. mermaid.live, Notion, many slide tools) to generate a diagram:
 
 ```mermaid
@@ -613,8 +613,3 @@ flowchart LR
     Rules --> GRC
     Reviews --> ITSM
     Audit --> Store
-
-  
-
-
-   
