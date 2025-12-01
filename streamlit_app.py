@@ -299,7 +299,7 @@ if page == "Overview":
         else:
             st.info("No data available to generate heatmap.")
 
-    # Pie chart: Risk Breakdown
+      # Pie chart: Risk Breakdown
     with col2:
         st.subheader("Risk Breakdown")
 
@@ -310,31 +310,39 @@ if page == "Overview":
             .rename(columns={"index": "risk_level", "risk_level": "count"})
         )
 
-        
+        if not risk_counts.empty:
+            fig2 = px.pie(
+                risk_counts,
+                names="risk_level",
+                values="count",
+                hole=0.45,
+            )
+            fig2.update_traces(textinfo="label+percent")
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.info("No risk data available for breakdown.")
+
     st.markdown("---")
 
-  
-   # Lifecycle State Overview
-st.subheader("Lifecycle State Overview")
-life_counts = (
-    df["lifecycle_state"]
-    .value_counts()
-    .reset_index()
-    .rename(columns={"index": "state", "lifecycle_state": "count"})
-)
-
-if not life_counts.empty:
-    fig_life = px.bar(
-        life_counts.copy(),   # <-- FIXED LINE
-        x="state",
-        y="count",
-        text="count",
+    # Lifecycle State Overview
+    st.subheader("Lifecycle State Overview")
+    life_counts = (
+        df["lifecycle_state"]
+        .value_counts()
+        .reset_index()
+        .rename(columns={"index": "state", "lifecycle_state": "count"})
     )
-    st.plotly_chart(fig_life, use_container_width=True)
-else:
-    st.info("No lifecycle_state data available.")
 
-
+    if not life_counts.empty:
+        fig_life = px.bar(
+            life_counts.copy(),
+            x="state",
+            y="count",
+            text="count",
+        )
+        st.plotly_chart(fig_life, use_container_width=True)
+    else:
+        st.info("No lifecycle_state data available.")
 
 # -------------------------------------------------------
 # PAGE: Agents Table
@@ -349,13 +357,7 @@ elif page == "Agents Table":
     if filtered.empty:
         st.info("No agents match the selected filters.")
     else:
-        # Hide verbose reasoning columns by default in the grid
-        hidden_cols = [
-            "reasoning",
-            "autonomy_reasoning",
-            "action",
-        ]
-
+        hidden_cols = ["reasoning", "autonomy_reasoning", "action"]
         display_cols = [c for c in filtered.columns if c not in hidden_cols]
 
         st.dataframe(
@@ -363,7 +365,6 @@ elif page == "Agents Table":
             use_container_width=True,
             height=600,
         )
-
 
 # -------------------------------------------------------
 # PAGE: Agent Detail
