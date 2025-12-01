@@ -517,35 +517,19 @@ def render_lifecycle_timeline(df_filtered):
     # Fallback: approved_date + 60 days if deployment_date is missing
     fallback = mask_decomm & df["decommissioned_date"].isna()
     df.loc[fallback, "decommissioned_date"] = (
-        df.loc[fallback, "approved_date"] + pd.Timedelta(days=60)
-    )
+     # ------------------------------------------------------------
+# Executive summary metrics
+# ------------------------------------------------------------
 
-    today = pd.Timestamp.today().normalize()
-    cutoff_90 = today - pd.Timedelta(days=90)
-
-    # ------------------------------------------------------------------
-    # Executive summary metrics
-    # ------------------------------------------------------------------
-    # Executive Summary (last 90 days activity)
-
-# Total agents created or updated in 90 days
-date_cols = ["requested_date", "approved_date", "testing_start", "deployment_date"]
-latest_dates = df[date_cols].max(axis=1)
-total_90 = int((latest_dates >= cutoff_90).sum())
+# "Activity in last 90 days": requested date if available, else any date
+base_for_90 = df["requested_date"].where(df["requested_date"].notna(), df["deployment_date"])
+total_90 = int((base_for_90 >= cutoff_90).sum())
 
 # Deployed in last 90 days
-if "deployment_date" in df:
-    deployed_90 = int((df["deployment_date"].notna()) & (df["deployment_date"] >= cutoff_90))
-else:
-    deployed_90 = 0
+deployed_mask = df["deployment_date"].notna()
+deployed_90 = int((df["deployment_date"] >= cutoff_90).sum())
 
-# Decommissioned (retired or deprecated) in last 90 days
-retire_cols = []
-for col in ["retired_date", "deprecated_date", "decommissioned_date"]:
-    if col in df:
-        retire_cols.append(col)
-
-# Count decommissioned in last 90 days (any of retired/deprecated/decommissioned dates)
+# Decommissioned / retired / deprecated in last 90 days
 retire_cols = []
 for col in ["retired_date", "deprecated_date", "decommissioned_date"]:
     if col in df:
@@ -557,7 +541,7 @@ if retire_cols:
 else:
     decomm_90 = 0
 
-# Count agents in Testing
+# Count in testing
 testing_count = int(df["lifecycle_state"].str.upper().eq("TESTING").sum())
 
 # Average time to deploy
@@ -568,35 +552,44 @@ if "deployment_date" in df:
 else:
     avg_time_to_deploy = None
 
-# Agents in approval queue (requested/approved but not testing/deployed/decommissioned)
+# Agents in approval queue: requested/approved but not yet testing/deployed/decommissioned
 in_queue_mask = df["lifecycle_state"].isin({"REQUESTED", "APPROVED"})
 in_queue = int(in_queue_mask.sum())
 
 # Lifecycle completion rate
-completed_mask = (
-    df["deployment_date"].notna()
-    | df[retire_cols].notna().any(axis=1) if retire_cols else df["deployment_date"].notna()
-)
+if retire_cols:
+    completed_mask = deployed_mask | df[retire_cols].notna().any(axis=1)
+else:
+    completed_mask = deployed_mask
+
 lifecycle_completion_rate = int(100 * completed_mask.mean()) if len(df) else 0
 
+# ------------------------------------------------------------
+# Executive Summary Display
+# ------------------------------------------------------------
 
-    # Lifecycle completion rate: has either deployment_date or decommissioned_date
-    completed_mask = deployed_mask | decomm_mask
-    lifecycle_completion_rate = (
-        int(round(100 * completed_mask.mean())) if len(df) else 0
-    )
+st.subheader("⭐ Executive Summary")
 
-    st.subheader("⭐ Executive Summary")
+c1, c2, c3, c4 = st.columns(4)
+with c1:
+    st.metric("Total Agents (last 90 days)", total_90 if total_90 else len(df))
+with c2:
+    st.metric("Deployed (last 90 days)", deployed_90)
+with c3:
+    st.metric("Decommissioned (last 90 days)", decomm_90)
+with c4:
+    st.metric("In Testing", testing_count)
 
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric("Total Agents (last 90 days)", total_90 if total_90 else len(df))
-    with c2:
-        st.metric("Deployed (last 90 days)", deployed_90)
-    with c3:
-        st.metric("Decommissioned (last 90 days)", decomm_90)
-    with c4:
-        st.metric("In Testing", testing_count)
+c5, c6, c7 = st.columns(3)
+with c5:
+    st.metric("Average time to deploy", f"{avg_time_to_deploy} days" if avg_time_to_deploy else "-")
+with c6:
+    st.metric("Agents in approval queue", in_queue)
+with c7:
+    st.metric("Lifecycle completion rate", f"{lifecycle_completion_rate}%")
+
+st.divider()
+
 
     c5, c6, c7 = st.columns(3)
     with c5:
