@@ -477,7 +477,8 @@ def render_lifecycle_timeline(df_filtered):
     import pandas as pd
     import plotly.express as px
 
-    st.title("📊 Lifecycle Timeline — Director-Level Insights")
+    st.title("📊 Lifecycle Timeline — Deployment & Governance Insights")
+
 
     # ------------------------------------------------------------------
     # Guard clause: nothing to show
@@ -525,23 +526,46 @@ def render_lifecycle_timeline(df_filtered):
     # ------------------------------------------------------------------
     # Executive summary metrics
     # ------------------------------------------------------------------
-    # "Activity in last 90 days" uses requested_date if available, else any date
-    base_for_90 = df["requested_date"].where(df["requested_date"].notna(), df["deployment_date"])
-    total_90 = int((base_for_90 >= cutoff_90).sum())
+    # Executive Summary (last 90 days activity)
 
-    deployed_mask = df["deployment_date"].notna()
-    deployed_90 = int((df["deployment_date"] >= cutoff_90).sum())
+# Total agents created or updated in 90 days
+date_cols = ["requested_date", "approved_date", "testing_start", "deployment_date"]
+latest_dates = df[date_cols].max(axis=1)
+total_90 = int((latest_dates >= cutoff_90).sum())
 
-    decomm_mask = df["decommissioned_date"].notna()
-    decomm_90 = int((df["decommissioned_date"] >= cutoff_90).sum())
+# Deployed in last 90 days
+if "deployment_date" in df:
+    deployed_90 = int((df["deployment_date"].notna()) & (df["deployment_date"] >= cutoff_90))
+else:
+    deployed_90 = 0
+
+# Decommissioned (retired or deprecated) in last 90 days
+retire_cols = []
+for col in ["retired_date", "deprecated_date", "decommissioned_date"]:
+    if col in df:
+        retire_cols.append(col)
+
+if retire_cols:
+    retire_events = df[retire_cols].max(axis=1)
+    decomm_90 = int((retire_events >= cutoff_90).sum())
+else:
+    decomm_90 = 0
+
+# Count in testing state
+testing_count = int(df["lifecycle_state"].str.upper().eq("TESTING").sum())
+
 
     testing_mask = df["lifecycle_state"].str.upper().eq("TESTING")
     testing_count = int(testing_mask.sum())
 
     # Average time to deploy (days)
-    deploy_cycle = (
-        df["deployment_date"] - df["requested_date"]
-    ).dt.days.dropna()
+   if "deployment_date" in df:
+    deploy_cycle = (df["deployment_date"] - df["requested_date"]).dt.days
+    deploy_cycle = deploy_cycle.dropna()
+    avg_time_to_deploy = int(round(deploy_cycle.mean())) if not deploy_cycle.empty else None
+else:
+    avg_time_to_deploy = None
+
     avg_time_to_deploy = int(round(deploy_cycle.mean())) if not deploy_cycle.empty else None
 
     # Agents in approval queue: requested/approved but not yet testing/deployed/decommissioned
