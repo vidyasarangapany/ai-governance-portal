@@ -313,31 +313,7 @@ if page == "Overview":
         
     st.markdown("---")
 
-    # Review cadence overview
-    st.subheader("Review Cadence Overview")
-    if "review_cadence" in df.columns:
-        cad = (
-            df["review_cadence"]
-            .value_counts()
-            .reset_index()
-            .rename(columns={"index": "review_cadence_label", "review_cadence": "count"})
-        )
-
-        if not cad.empty:
-            fig3 = px.bar(
-                cad,
-                x="review_cadence_label",
-                y="count",
-                text="count",
-            )
-            st.plotly_chart(fig3, use_container_width=True)
-        else:
-            st.info("No review cadence data available.")
-    else:
-        st.info("No review_cadence column in JSON.")
-
-    st.markdown("---")
-
+  
     # Lifecycle State Overview
     st.subheader("Lifecycle State Overview")
     life_counts = (
