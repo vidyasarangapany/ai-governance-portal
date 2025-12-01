@@ -563,9 +563,9 @@ elif page == "💡 Insights":
     st.subheader("Executive-ready talking points")
     st.markdown(
         """
-- **Single governance layer**: This portal acts as the *control tower* for all AI agents across business units.
-- **Risk + Autonomy + Lifecycle**: Every agent is tracked across *risk level*, *autonomy mode*, and *lifecycle state*.
-- **Synthetic review cadence engine**: Today it's demo data, but real review schedules can plug in automatically.
+- **Single governance layer**: This portal acts as the *control tower* for all AI agents across business units.  
+- **Risk + Autonomy + Lifecycle**: Every agent is tracked across *risk level*, *autonomy mode*, and *lifecycle state*.  
+- **Synthetic review cadence engine**: Today it's demo data, but real review schedules can plug in automatically.  
 - **Ready for enterprise integration**: Security, HR, and IT portals can integrate with this governance engine.
         """
     )
@@ -575,10 +575,11 @@ elif page == "💡 Insights":
 
     st.markdown(
         """
-Paste this into any Mermaid-compatible tool (mermaid.live, Notion, Obsidian) to generate a diagram:
+Copy and paste this into any Mermaid-compatible tool (mermaid.live, Notion, Obsidian) to generate a diagram:
 
 ```mermaid
 flowchart LR
+
     subgraph DataLayer[Data Sources]
         GJSON[governance_decisions.json<br/>(GitHub / S3 / DB)]
     end
