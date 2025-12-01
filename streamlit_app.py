@@ -573,7 +573,7 @@ elif page == "💡 Insights":
     st.markdown("---")
     st.subheader("High-level Architecture (Mermaid diagram)")
 
-    st.markdown("---")
+        st.markdown("---")
     st.subheader("High-level Architecture (Mermaid diagram)")
 
     st.markdown(
