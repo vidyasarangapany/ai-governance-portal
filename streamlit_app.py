@@ -553,7 +553,6 @@ elif page == "🔍 Agent Detail":
         st.markdown("#### Recommended Action")
         st.write(row.get("action", ""))
 
-
 # -------------------------------------------------------
 # PAGE: Insights (Architecture diagram, etc.)
 # -------------------------------------------------------
@@ -571,9 +570,6 @@ elif page == "💡 Insights":
     )
 
     st.markdown("---")
-    st.subheader("High-level Architecture (Mermaid diagram)")
-
-        st.markdown("---")
     st.subheader("High-level Architecture (Mermaid diagram)")
 
     st.markdown(
