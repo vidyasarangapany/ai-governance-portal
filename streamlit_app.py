@@ -545,33 +545,40 @@ for col in ["retired_date", "deprecated_date", "decommissioned_date"]:
     if col in df:
         retire_cols.append(col)
 
+# Count decommissioned in last 90 days (any of retired/deprecated/decommissioned dates)
+retire_cols = []
+for col in ["retired_date", "deprecated_date", "decommissioned_date"]:
+    if col in df:
+        retire_cols.append(col)
+
 if retire_cols:
     retire_events = df[retire_cols].max(axis=1)
     decomm_90 = int((retire_events >= cutoff_90).sum())
 else:
     decomm_90 = 0
 
-# Count in testing state
+# Count agents in Testing
 testing_count = int(df["lifecycle_state"].str.upper().eq("TESTING").sum())
 
-
-    testing_mask = df["lifecycle_state"].str.upper().eq("TESTING")
-    testing_count = int(testing_mask.sum())
-
-    # Average time to deploy (days)
-   if "deployment_date" in df:
+# Average time to deploy
+if "deployment_date" in df:
     deploy_cycle = (df["deployment_date"] - df["requested_date"]).dt.days
     deploy_cycle = deploy_cycle.dropna()
     avg_time_to_deploy = int(round(deploy_cycle.mean())) if not deploy_cycle.empty else None
 else:
     avg_time_to_deploy = None
 
-    avg_time_to_deploy = int(round(deploy_cycle.mean())) if not deploy_cycle.empty else None
+# Agents in approval queue (requested/approved but not testing/deployed/decommissioned)
+in_queue_mask = df["lifecycle_state"].isin({"REQUESTED", "APPROVED"})
+in_queue = int(in_queue_mask.sum())
 
-    # Agents in approval queue: requested/approved but not yet testing/deployed/decommissioned
-    terminal_states = decomm_states | {"DEPLOYED"}
-    in_queue_mask = df["lifecycle_state"].isin({"REQUESTED", "APPROVED"})
-    in_queue = int(in_queue_mask.sum())
+# Lifecycle completion rate
+completed_mask = (
+    df["deployment_date"].notna()
+    | df[retire_cols].notna().any(axis=1) if retire_cols else df["deployment_date"].notna()
+)
+lifecycle_completion_rate = int(100 * completed_mask.mean()) if len(df) else 0
+
 
     # Lifecycle completion rate: has either deployment_date or decommissioned_date
     completed_mask = deployed_mask | decomm_mask
