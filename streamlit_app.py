@@ -3,8 +3,9 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 import pandas as pd
-import streamlit as st
 import plotly.express as px
+import plotly.graph_objects as go
+import streamlit as st
 
 # -------------------------------------------------------
 # Page config
@@ -53,7 +54,6 @@ REVIEW_OFFSETS_DAYS = {
     "ANNUAL": 365,
 }
 
-
 # -------------------------------------------------------
 # Helpers
 # -------------------------------------------------------
@@ -72,6 +72,7 @@ def load_data_from_file(uploaded_file) -> pd.DataFrame:
     - User upload (Streamlit sidebar), or
     - Local file in the repo.
     """
+
     if uploaded_file is not None:
         data = json.load(uploaded_file)
     else:
@@ -218,14 +219,41 @@ def render_kpis(df: pd.DataFrame):
         st.metric("Auto Allowed", auto_allowed)
 
 
-def get_download_blobs(df: pd.DataFrame):
-    csv_bytes = df.to_csv(index=False).encode("utf-8")
-    json_bytes = df.to_json(orient="records", indent=2).encode("utf-8")
-    return csv_bytes, json_bytes
+def get_risk_summary(df: pd.DataFrame) -> str:
+    """
+    Returns a short executive summary sentence about risk distribution.
+    """
+    if df.empty:
+        return "No agents match the current filters."
+
+    high = (df["risk_level"] == "HIGH RISK").sum()
+    med = (df["risk_level"] == "MEDIUM RISK").sum()
+    low = (df["risk_level"] == "LOW RISK").sum()
+    total = len(df)
+
+    top_owner = (
+        df[df["risk_level"] == "HIGH RISK"]["owner"].value_counts().idxmax()
+        if high > 0
+        else None
+    )
+
+    parts = [f"{total} total agents in view"]
+    if high:
+        parts.append(f"{high} high-risk")
+    if med:
+        parts.append(f"{med} medium-risk")
+    if low:
+        parts.append(f"{low} low-risk")
+
+    summary = ", ".join(parts) + "."
+    if top_owner:
+        summary += f" Highest concentration of high-risk agents is under **{top_owner}**."
+
+    return summary
 
 
 # -------------------------------------------------------
-# Sidebar – controls
+# Sidebar – controls & exports
 # -------------------------------------------------------
 
 st.sidebar.header("Controls")
@@ -269,6 +297,27 @@ if auto_filter != "All":
 if life_filter != "All":
     filtered = filtered[filtered["lifecycle_state"] == life_filter]
 
+# Export tools
+st.sidebar.markdown("---")
+with st.sidebar.expander("Export data"):
+    all_csv = df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "Download all agents (CSV)",
+        all_csv,
+        file_name="agents_all.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+    filtered_csv = filtered.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "Download filtered view (CSV)",
+        filtered_csv,
+        file_name="agents_filtered.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
 st.sidebar.markdown("---")
 
 page = st.sidebar.radio(
@@ -281,7 +330,6 @@ page = st.sidebar.radio(
         "💡 Insights",
     ],
 )
-
 
 # -------------------------------------------------------
 # PAGE: Overview
@@ -315,56 +363,84 @@ if page == "🏠 Overview":
 
     upcoming = reviews_df[reviews_df["days_to_next_review"].between(0, 30)]
 
-    if upcoming.empty:
-        st.info(
-            "No agents have reviews due in the next 30 days "
-            "(based on synthetic review dates)."
-        )
-    else:
-        upcoming = upcoming.sort_values("days_to_next_review")
-        upcoming["next_review_due"] = upcoming["next_review_due"].dt.date
-        upcoming["last_reviewed"] = upcoming["last_reviewed"].dt.date
-        st.dataframe(
-            upcoming.rename(
-                columns={
-                    "agent_name": "Agent",
-                    "owner": "Owner",
-                    "risk_level": "Risk",
-                    "review_cadence": "Cadence",
-                    "last_reviewed": "Last Reviewed",
-                    "next_review_due": "Next Review Due",
-                    "days_to_next_review": "Days to Next",
-                }
-            ),
+    col_up_left, col_up_right = st.columns([4, 1])
+
+    with col_up_left:
+        if upcoming.empty:
+            st.info(
+                "No agents have reviews due in the next 30 days "
+                "(based on synthetic review dates)."
+            )
+        else:
+            upcoming = upcoming.sort_values("days_to_next_review")
+            upcoming["next_review_due"] = upcoming["next_review_due"].dt.date
+            upcoming["last_reviewed"] = upcoming["last_reviewed"].dt.date
+            st.dataframe(
+                upcoming.rename(
+                    columns={
+                        "agent_name": "Agent",
+                        "owner": "Owner",
+                        "risk_level": "Risk",
+                        "review_cadence": "Cadence",
+                        "last_reviewed": "Last Reviewed",
+                        "next_review_due": "Next Review Due",
+                        "days_to_next_review": "Days to Next",
+                    }
+                ),
+                use_container_width=True,
+                height=260,
+            )
+
+    with col_up_right:
+        st.markdown("**Exports**")
+        up_csv = upcoming.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Download upcoming\nreviews (CSV)",
+            up_csv,
+            file_name="upcoming_reviews.csv",
+            mime="text/csv",
             use_container_width=True,
         )
 
-    # ---------------------------------------------------
-    # High-Risk Spotlight (Agent "cards")
-    # ---------------------------------------------------
-    with st.expander("🔥 High-Risk Agent Spotlight", expanded=True):
-        high_risk_agents = (
-            filtered[filtered["risk_level"] == "HIGH RISK"]
-            .sort_values("risk_score", ascending=False)
-            .head(4)
-        )
-
-        if high_risk_agents.empty:
-            st.write("No high-risk agents in the current view.")
+        st.markdown("**Mini-Insight**")
+        if upcoming.empty:
+            st.write("No near-term review pressure for the current slice.")
         else:
-            cols = st.columns(len(high_risk_agents))
-            for col, (_, r) in zip(cols, high_risk_agents.iterrows()):
-                with col:
-                    st.markdown(
-                        f"""
-**{r['agent_name']}**
+            soon = (upcoming["days_to_next_review"] <= 7).sum()
+            st.write(
+                f"- {len(upcoming)} agents due in next 30 days\n"
+                f"- {soon} due within **7 days**"
+            )
 
-- Owner: `{r.get('owner', 'N/A')}`
-- Autonomy: `{r.get('autonomy_level', 'N/A')}`
-- Review cadence: `{r.get('review_cadence', 'N/A')}`
-- Lifecycle: `{r.get('lifecycle_state', 'N/A')}`
-"""
+    # ---------------------------------------------------
+    # High-Risk Spotlight (collapsible)
+    # ---------------------------------------------------
+    st.markdown("")
+    with st.expander("🔥 High-Risk Agent Spotlight (filtered view)", expanded=True):
+        high_df = filtered[filtered["risk_level"] == "HIGH RISK"].copy()
+
+        if high_df.empty:
+            st.info("No high-risk agents in the current filtered view.")
+        else:
+            # Pick top 4 by synthetic proximity to next review (smallest days_to_next_review)
+            high_df = high_df.sort_values("days_to_next_review").head(4)
+            cols = st.columns(len(high_df))
+
+            for col, (_, row) in zip(cols, high_df.iterrows()):
+                with col:
+                    st.markdown(f"### {row['agent_name']}")
+                    st.markdown(
+                        f"- Owner: `{row.get('owner', '')}`\n"
+                        f"- Autonomy: `{row.get('autonomy_level', '')}`\n"
+                        f"- Review cadence: `{row.get('review_cadence', '')}`\n"
+                        f"- Lifecycle: `{row.get('lifecycle_state', '')}`\n"
+                        f"- Next review in **{int(row.get('days_to_next_review', 0))} days**"
                     )
+
+            st.markdown(
+                "> **Executive view:** Focus your next governance meeting on these "
+                "agents – they combine high risk with near-term review dates."
+            )
 
     st.markdown("---")
 
@@ -402,8 +478,12 @@ if page == "🏠 Overview":
         else:
             st.info("No data available to generate heatmap with current filters.")
 
+        # Mini-report under heatmap
+        st.markdown("**What this tells you**")
+        st.markdown(get_risk_summary(filtered))
+
     # ---------------------------------------------------
-    # Risk Breakdown – donut chart
+    # Risk Breakdown – donut chart (using graph_objects to avoid narwhals DuplicateError)
     # ---------------------------------------------------
     with col2:
         st.subheader("Risk Breakdown")
@@ -416,16 +496,23 @@ if page == "🏠 Overview":
         )
 
         if not risk_counts.empty:
-            fig2 = px.pie(
-                risk_counts.copy(),
-                names="risk_level",
-                values="count",
-                hole=0.45,
+            fig2 = go.Figure(
+                data=[
+                    go.Pie(
+                        labels=risk_counts["risk_level"],
+                        values=risk_counts["count"],
+                        hole=0.45,
+                        textinfo="label+percent",
+                    )
+                ]
             )
-            fig2.update_traces(textinfo="label+percent")
+            fig2.update_layout(margin=dict(l=0, r=0, t=0, b=0))
             st.plotly_chart(fig2, use_container_width=True)
         else:
             st.info("No risk data available for current filters.")
+
+        st.markdown("**Executive snapshot**")
+        st.markdown(get_risk_summary(filtered))
 
     st.markdown("---")
 
@@ -450,6 +537,13 @@ if page == "🏠 Overview":
             )
             fig3.update_layout(xaxis_title="", yaxis_title="count")
             st.plotly_chart(fig3, use_container_width=True)
+
+            # Mini cadence report
+            top_cadence = cad.sort_values("count", ascending=False).iloc[0]
+            st.markdown(
+                f"Most agents follow a **{top_cadence['review_cadence_label']}** cadence "
+                f"({top_cadence['count']} agents)."
+            )
         else:
             st.info("No review cadence data available for current filters.")
     else:
@@ -480,31 +574,15 @@ if page == "🏠 Overview":
         )
         fig_life.update_layout(xaxis_title="state", yaxis_title="count", showlegend=False)
         st.plotly_chart(fig_life, use_container_width=True)
+
+        top_state = life_counts.sort_values("count", ascending=False).iloc[0]
+        st.markdown(
+            f"Lifecycle concentration is in **{top_state['state']}** "
+            f"({top_state['count']} agents). Retiring or archiving more agents over time "
+            "reduces governance load."
+        )
     else:
         st.info("No lifecycle_state data available.")
-
-    # ---------------------------------------------------
-    # Export current view
-    # ---------------------------------------------------
-    st.markdown("---")
-    st.subheader("Export current view")
-    csv_bytes, json_bytes = get_download_blobs(filtered)
-
-    exp_col1, exp_col2 = st.columns(2)
-    with exp_col1:
-        st.download_button(
-            "⬇️ Download filtered data as CSV",
-            data=csv_bytes,
-            file_name="agents_filtered.csv",
-            mime="text/csv",
-        )
-    with exp_col2:
-        st.download_button(
-            "⬇️ Download filtered data as JSON",
-            data=json_bytes,
-            file_name="agents_filtered.json",
-            mime="application/json",
-        )
 
 
 # -------------------------------------------------------
@@ -546,6 +624,16 @@ elif page == "📈 Lifecycle Timeline":
             "view would look at enterprise scale._"
         )
 
+        # Mini lifecycle story
+        by_state = tl_df["lifecycle_state"].value_counts()
+        deployed = by_state.get("DEPLOYED", 0)
+        retired = by_state.get("RETIRED", 0) + by_state.get("ARCHIVED", 0)
+        st.markdown(
+            f"- **{deployed} agents** appear active in the environment.\n"
+            f"- **{retired} agents** are in retirement or archive, "
+            "showing where risk has already been reduced."
+        )
+
 
 # -------------------------------------------------------
 # PAGE: Agents Table
@@ -574,25 +662,13 @@ elif page == "📋 Agents Table":
             height=600,
         )
 
-        st.markdown("---")
-        st.subheader("Export table data")
-
-        csv_bytes, json_bytes = get_download_blobs(filtered)
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.download_button(
-                "⬇️ Download table as CSV",
-                data=csv_bytes,
-                file_name="agents_table.csv",
-                mime="text/csv",
-            )
-        with col_b:
-            st.download_button(
-                "⬇️ Download table as JSON",
-                data=json_bytes,
-                file_name="agents_table.json",
-                mime="application/json",
-            )
+        # Quick executive hints
+        st.markdown("**Reading tip for leaders**")
+        st.markdown(
+            "- Sort on `risk_level` or `risk_score` to see the top of the risk stack.\n"
+            "- Use the sidebar filters to isolate a business unit, lifecycle state, or autonomy mode.\n"
+            "- Export the filtered table to CSV from the sidebar for offline review."
+        )
 
 
 # -------------------------------------------------------
@@ -600,96 +676,81 @@ elif page == "📋 Agents Table":
 # -------------------------------------------------------
 elif page == "🔍 Agent Detail":
     st.title("🔍 Agent Detail View")
-    st.caption("Deep dive for a single agent (on top of sidebar filters).")
+    st.caption("Deep dive for a single agent (filtered by sidebar controls).")
 
     if filtered.empty:
         st.info("No agents available for selected filters.")
     else:
-        # Extra filters just for this page
-        with st.expander("Additional filters for this view", expanded=False):
-            owners_available = sorted(filtered["owner"].dropna().unique().tolist())
-            risks_available = sorted(filtered["risk_level"].dropna().unique().tolist())
-
-            owner_multi = st.multiselect(
-                "Filter by Owner (optional)", owners_available, default=[]
+        # Optional in-page filters for detail exploration
+        st.markdown("##### Narrow the list (optional)")
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            owner_filter = st.selectbox(
+                "Filter agents by owner (within current filters)",
+                options=["All"] + sorted(filtered["owner"].dropna().unique().tolist()),
+                index=0,
             )
-            risk_multi = st.multiselect(
-                "Filter by Risk Level (optional)", risks_available, default=[]
+        with col_f2:
+            risk_only = st.selectbox(
+                "Focus on risk level",
+                options=["All"] + sorted(filtered["risk_level"].dropna().unique().tolist()),
+                index=0,
             )
 
         detail_df = filtered.copy()
-        if owner_multi:
-            detail_df = detail_df[detail_df["owner"].isin(owner_multi)]
-        if risk_multi:
-            detail_df = detail_df[detail_df["risk_level"].isin(risk_multi)]
+        if owner_filter != "All":
+            detail_df = detail_df[detail_df["owner"] == owner_filter]
+        if risk_only != "All":
+            detail_df = detail_df[detail_df["risk_level"] == risk_only]
 
         if detail_df.empty:
-            st.info("No agents remain after applying the additional filters.")
+            st.info("No agents match the additional detail filters.")
         else:
             agent_list = detail_df["agent_name"].unique().tolist()
             selected = st.selectbox("Choose an agent", agent_list)
 
             row = detail_df[detail_df["agent_name"] == selected].iloc[0]
 
-            # Summary "card"
-            st.markdown(f"## {row['agent_name']}")
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Risk Level", row.get("risk_level", ""))
-            with col2:
-                st.metric("Autonomy", row.get("autonomy_level", ""))
-            with col3:
-                st.metric("Lifecycle", row.get("lifecycle_state", ""))
-            with col4:
-                st.metric("Review Cadence", row.get("review_cadence", ""))
+            st.markdown(f"### {row['agent_name']}")
+            col_meta, col_dates = st.columns(2)
 
-            st.markdown("---")
-
-            meta_cols = st.columns(3)
-            with meta_cols[0]:
-                st.write("**Owner**")
-                st.write(row.get("owner", ""))
-            with meta_cols[1]:
-                st.write("**Created By**")
-                st.write(row.get("created_by", ""))
-            with meta_cols[2]:
-                st.write("**Synthetic Dates**")
+            with col_meta:
+                st.markdown("**Profile**")
                 st.write(
-                    f"Last reviewed: {row.get('last_reviewed', '')}\n\n"
-                    f"Next review due: {row.get('next_review_due', '')}"
+                    {
+                        "Owner": row.get("owner", ""),
+                        "Created By": row.get("created_by", ""),
+                        "Risk Level": row.get("risk_level", ""),
+                        "Autonomy Level": row.get("autonomy_level", ""),
+                        "Review Cadence": row.get("review_cadence", ""),
+                        "Lifecycle State": row.get("lifecycle_state", ""),
+                    }
                 )
 
-            st.markdown("---")
-
-            # Collapsible governance notes & actions
-            with st.expander("Governance Notes", expanded=True):
-                st.write(row.get("reasoning", ""))
-
-            with st.expander("Recommended Action", expanded=True):
-                st.write(row.get("action", ""))
-
-            # Single-row export
-            st.markdown("---")
-            st.subheader("Export this agent record")
-
-            single_df = pd.DataFrame([row])
-            csv_bytes, json_bytes = get_download_blobs(single_df)
-
-            c1, c2 = st.columns(2)
-            with c1:
-                st.download_button(
-                    "⬇️ Download as CSV",
-                    data=csv_bytes,
-                    file_name=f"{row['agent_name']}_detail.csv",
-                    mime="text/csv",
+            with col_dates:
+                st.markdown("**Review timeline (synthetic)**")
+                st.write(
+                    {
+                        "Last Reviewed": row.get("last_reviewed", ""),
+                        "Next Review Due": row.get("next_review_due", ""),
+                        "Days to Next Review": row.get("days_to_next_review", ""),
+                    }
                 )
-            with c2:
-                st.download_button(
-                    "⬇️ Download as JSON",
-                    data=json_bytes,
-                    file_name=f"{row['agent_name']}_detail.json",
-                    mime="application/json",
-                )
+
+            st.markdown("#### Governance Notes")
+            st.write(row.get("reasoning", ""))
+
+            st.markdown("#### Recommended Action")
+            st.write(row.get("action", ""))
+
+            # Export just this agent
+            agent_json = json.dumps(row.to_dict(), default=str, indent=2)
+            st.download_button(
+                "Download this agent as JSON",
+                agent_json,
+                file_name=f"{row['agent_name']}.json",
+                mime="application/json",
+            )
 
 
 # -------------------------------------------------------
@@ -698,53 +759,51 @@ elif page == "🔍 Agent Detail":
 elif page == "💡 Insights":
     st.title("💡 Governance Insights & Architecture")
 
-    # Executive talking points
-    st.subheader("Executive-ready talking points")
-    st.markdown(
-        """
+    # ---------------- Executive talking points ----------------
+    with st.expander("Executive-ready talking points", expanded=True):
+        st.markdown(
+            """
 - **Single governance layer**: This portal acts as the *control tower* for all AI agents across business units.  
-- **Risk + Autonomy + Lifecycle**: Every agent is tracked across *risk level*, *autonomy mode*, and *lifecycle state*.  
-- **Synthetic review cadence engine**: Today it's demo data, but real review schedules can plug in automatically.  
-- **Ready for enterprise integration**: Security, HR, and IT portals can integrate with this governance engine.
-"""
-    )
-
-    # Collapsible deep-dive sections
-    with st.expander("How synthetic dates & lifecycle are calculated", expanded=False):
-        st.markdown(
+- **Risk + Autonomy + Lifecycle**: Every agent is tracked across *risk level*, *autonomy mode*, and *lifecycle state* so risk is never looked at in isolation.  
+- **Synthetic review cadence engine**: Today it's demo data, but real review schedules from Jira/ServiceNow/HR systems can plug in automatically.  
+- **Ready for enterprise integration**: Security, HR, and IT portals can integrate with this governance layer via APIs or data lake exports.  
+- **Operator-friendly exports**: Every view can be exported for offline review, audit evidence, or deeper analysis.
             """
-**Review cadence engine**
-
-- `last_reviewed` dates are distributed over the last few months to create realistic-looking patterns.  
-- `next_review_due` is calculated using the cadence offsets (Immediate, Monthly, Quarterly, etc.).  
-- `days_to_next_review` powers the upcoming-review panel for proactive risk management.
-
-**Lifecycle timeline**
-
-- Each agent is assigned a state-specific duration (Testing, Pilot, Deployed, etc.).  
-- Start dates are staggered to make the timeline visualization easier to scan.
-"""
-        )
-
-    with st.expander("Data dictionary (key fields)", expanded=False):
-        st.markdown(
-            """
-- `agent_name`: Friendly name for the AI agent or automation.  
-- `owner`: Accountable team / function.  
-- `risk_level`: High / Medium / Low (mapped to numeric risk score).  
-- `autonomy_level`: AUTO_ALLOWED, HUMAN_IN_LOOP, LIMITED_AUTONOMY, or NO_AUTONOMY.  
-- `review_cadence`: How often the agent should be reviewed (Immediate, Monthly, Quarterly, etc.).  
-- `lifecycle_state`: DEPLOYED, TESTING, PILOT, RETIRED, DEPRECATED, or ARCHIVED.  
-- `reasoning`: Governance notes explaining why the decision was made.  
-- `action`: Recommended control / follow-up.
-"""
         )
 
     st.markdown("---")
+
+    # ---------------- Risk & review mini-report ----------------
+    st.subheader("Risk & Review Posture – one-page readout")
+
+    col_r1, col_r2 = st.columns(2)
+    with col_r1:
+        st.markdown("**Current risk mix (filtered)**")
+        st.markdown(get_risk_summary(filtered))
+
+    with col_r2:
+        # quick numeric snapshot
+        high = (filtered["risk_level"] == "HIGH RISK").sum()
+        due_30 = (filtered["days_to_next_review"] <= 30).sum()
+        st.metric("High-risk agents in view", high)
+        st.metric("Agents due for review in <= 30 days", due_30)
+
+    st.markdown(
+        "_Use this section when you need to brief a director or VP in under two minutes._"
+    )
+
+    st.markdown("---")
+
+    # ---------------- Mermaid architecture ----------------
     st.subheader("High-level Architecture (Mermaid diagram)")
 
-    # Mermaid diagram string (no backticks inside – we render with st.code)
-    mermaid_diagram = """
+    st.markdown(
+        "Copy the snippet below into any Mermaid-compatible tool "
+        "such as **mermaid.live**, Notion, or many slide tools to render the diagram."
+    )
+
+    mermaid_snippet = """
+```mermaid
 flowchart LR
 
     subgraph DataLayer[Data Sources]
@@ -781,10 +840,3 @@ flowchart LR
     Rules --> GRC
     Reviews --> ITSM
     Audit --> Store
-"""
-
-    st.markdown(
-        "Copy/paste the diagram below into any Mermaid-compatible tool "
-        "(for example **mermaid.live**, Notion, or Obsidian) to render it."
-    )
-    st.code(mermaid_diagram, language="mermaid")
