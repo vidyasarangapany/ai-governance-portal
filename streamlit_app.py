@@ -379,20 +379,43 @@ They usually:
             )
             st.plotly_chart(fig_heat, use_container_width=True)
 
-    with col_pie:
-        st.subheader("Risk Breakdown")
+   # ---------------------------------------------------
+# Risk Breakdown – donut chart (Narwhals-safe)
+# ---------------------------------------------------
+with col2:
+    st.subheader("Risk Breakdown")
 
-        risk_counts = (
-            filtered["risk_level"]
-            .value_counts()
-            .reset_index()
-            .rename(columns={"index": "risk_level", "risk_level": "count"})
+    risk_counts = (
+        filtered["risk_level"]
+        .value_counts()
+        .reset_index()
+        .rename(columns={"index": "risk_level", "risk_level": "count"})
+    )
+
+    if not risk_counts.empty:
+
+        # 🔥 Narwhals → Pandas conversion to avoid DuplicateError
+        risk_pd = risk_counts.to_pandas()
+
+        fig_pie = px.pie(
+            risk_pd,
+            names="risk_level",
+            values="count",
+            hole=0.45,
+            color="risk_level",
+            color_discrete_map={
+                "HIGH RISK": "#d62728",
+                "MEDIUM RISK": "#ff7f0e",
+                "LOW RISK": "#2ca02c",
+            },
         )
 
-        if risk_counts.empty:
-            st.info("No risk data available for the current filters.")
-        else:
-            risk_df = pd.DataFrame(risk_counts)
+        fig_pie.update_traces(textinfo="label+percent")
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+    else:
+        st.info("No risk data available for current filters.")
+
 
          # --- Risk Breakdown Pie (Narwhals-safe Pandas conversion) ---
 if not risk_df.empty:
