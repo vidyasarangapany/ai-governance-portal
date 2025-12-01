@@ -314,25 +314,26 @@ if page == "Overview":
     st.markdown("---")
 
   
-    # Lifecycle State Overview
-    st.subheader("Lifecycle State Overview")
-    life_counts = (
-        df["lifecycle_state"]
-        .value_counts()
-        .reset_index()
-        .rename(columns={"index": "state", "lifecycle_state": "count"})
-    )
+   # Lifecycle State Overview
+st.subheader("Lifecycle State Overview")
+life_counts = (
+    df["lifecycle_state"]
+    .value_counts()
+    .reset_index()
+    .rename(columns={"index": "state", "lifecycle_state": "count"})
+)
 
-    if not life_counts.empty:
-        fig_life = px.bar(
-            life_counts,
-            x="state",
-            y="count",
-            text="count",
-        )
-        st.plotly_chart(fig_life, use_container_width=True)
-    else:
-        st.info("No lifecycle_state data available.")
+if not life_counts.empty:
+    fig_life = px.bar(
+        life_counts.copy(),   # <-- FIXED LINE
+        x="state",
+        y="count",
+        text="count",
+    )
+    st.plotly_chart(fig_life, use_container_width=True)
+else:
+    st.info("No lifecycle_state data available.")
+
 
 
 # -------------------------------------------------------
