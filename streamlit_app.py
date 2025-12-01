@@ -280,16 +280,33 @@ if page == "🏠 Overview":
             st.info("No data available for the current filter selection.")
         else:
             # IMPORTANT: no .copy() here – avoids DuplicateError with narwhals
-            fig_pie = px.pie(
-                risk_counts,
-                names="risk_level",
-                values="count",
-                hole=0.45,
-                title="Portfolio risk mix",
-            )
-            fig_pie.update_traces(textinfo="label+percent")
-            fig_pie.update_layout(showlegend=False, margin=dict(l=10, r=10, t=40, b=10))
-            st.plotly_chart(fig_pie, use_container_width=True)
+           risk_counts = (
+    df_filtered["risk_level"]
+    .value_counts()
+    .reset_index()
+    .rename(columns={"index": "risk_level", "risk_level": "count"})
+)
+
+fig_pie = px.bar(
+    risk_counts,
+    x="risk_level",
+    y="count",
+    color="risk_level",
+    title="Portfolio Risk Mix",
+)
+
+fig_pie.update_layout(
+    bargap=0.4,
+    showlegend=False,
+)
+
+fig_pie.update_traces(
+    text=risk_counts["count"],
+    textposition="outside"
+)
+
+st.plotly_chart(fig_pie, use_container_width=True)
+)
 
 
 # ---------------------------------------------------------
