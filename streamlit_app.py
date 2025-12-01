@@ -1,288 +1,261 @@
-import json
-from io import StringIO
-from datetime import datetime, timedelta
-
-import numpy as np
+import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
-import streamlit as st
+from datetime import datetime, timedelta
 
-
-# ------------------------------------------------------------
-# Page config
-# ------------------------------------------------------------
 st.set_page_config(
     page_title="AI Agent Governance Portal",
-    page_icon="🛡️",
     layout="wide",
+    initial_sidebar_state="expanded"
 )
 
+st.markdown(
+    """
+    <style>
+    .small-metric { font-size: 32px !important; font-weight: 600; }
+    .metric-label { font-size: 16px !important; color: #666; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-# ------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------
-SAMPLE_JSON = """
-[
-  {
-    "agent_name": "InfraBot",
-    "owner": "DevOps",
-    "created_by": "DevOps",
-    "risk_level": "HIGH RISK",
-    "autonomy_level": "HUMAN_IN_LOOP",
-    "review_cadence": "Quarterly",
-    "lifecycle_state": "DEPLOYED"
-  },
-  {
-    "agent_name": "SupportGenie",
-    "owner": "Support",
-    "created_by": "Support",
-    "risk_level": "MEDIUM RISK",
-    "autonomy_level": "LIMITED_AUTONOMY",
-    "review_cadence": "Monthly",
-    "lifecycle_state": "PILOT"
-  }
-]
-"""
-
-
-CADENCE_DAYS = {
-    "Immediate": 7,        # treat as weekly checks
-    "Monthly": 30,
-    "Quarterly": 90,
-    "Semi-Annual": 180,
-    "Annual": 365,
-}
-
-
-def load_json(uploaded_file) -> pd.DataFrame:
-    if uploaded_file is not None:
-        df = pd.read_json(uploaded_file)
-    else:
-        df = pd.read_json(StringIO(SAMPLE_JSON))
-
-    # Standardize column names just in case
-    df = df.rename(
-        columns={
-            "Agent Name": "agent_name",
-            "Owner": "owner",
-            "Created By": "created_by",
-            "Risk Level": "risk_level",
-            "Autonomy Level": "autonomy_level",
-            "Review Cadence": "review_cadence",
-            "Lifecycle State": "lifecycle_state",
-        }
-    )
-    return df
-
-
-def augment_with_review_dates(df: pd.DataFrame) -> pd.DataFrame:
-    """Add synthetic last_reviewed, next_review_due, days_to_next."""
-    if df.empty:
-        return df
-
-    today = datetime.utcnow().date()
-    df = df.copy()
-
-    cadence_days = df["review_cadence"].map(CADENCE_DAYS).fillna(90).astype(int)
-
-    # Synthetic last review ~ half a cadence ago
-    df["last_reviewed"] = [
-        today - timedelta(days=int(d // 2)) for d in cadence_days
-    ]
-
-    df["next_review_due"] = [
-        lr + timedelta(days=int(cd))
-        for lr, cd in zip(df["last_reviewed"], cadence_days)
-    ]
-
-    df["days_to_next"] = (df["next_review_due"] - today).dt.days
-
-    return df
-
-
-def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
-    risk_levels = ["All"] + sorted(df["risk_level"].unique().tolist())
-    autonomy_levels = ["All"] + sorted(df["autonomy_level"].unique().tolist())
-    lifecycle_states = ["All"] + sorted(df["lifecycle_state"].unique().tolist())
-
-    st.sidebar.markdown("### Filter by Risk Level")
-    risk_filter = st.sidebar.selectbox("", risk_levels, index=0)
-
-    st.sidebar.markdown("### Filter by Autonomy Level")
-    aut_filter = st.sidebar.selectbox("", autonomy_levels, index=0)
-
-    st.sidebar.markdown("### Filter by Lifecycle State")
-    life_filter = st.sidebar.selectbox("", lifecycle_states, index=0)
-
-    df_filtered = df.copy()
-    if risk_filter != "All":
-        df_filtered = df_filtered[df_filtered["risk_level"] == risk_filter]
-    if aut_filter != "All":
-        df_filtered = df_filtered[df_filtered["autonomy_level"] == aut_filter]
-    if life_filter != "All":
-        df_filtered = df_filtered[df_filtered["lifecycle_state"] == life_filter]
-
-    return df_filtered
-
-
-def metric_block(label: str, value, helper: str = ""):
-    st.metric(label, value)
-    if helper:
-        st.caption(helper)
-
-
-# ------------------------------------------------------------
-# Layout – Sidebar
-# ------------------------------------------------------------
-st.sidebar.markdown("### Upload governance_decisions.json")
+# ---------------------------------------------------------
+# SIDEBAR – FILE UPLOAD + STATE
+# ---------------------------------------------------------
+st.sidebar.title("Controls")
 uploaded_file = st.sidebar.file_uploader(
-    "Upload governance_decisions.json", type=["json"], label_visibility="collapsed"
+    "Upload governance_decisions.json", type=["json"]
 )
 
-df_raw = load_json(uploaded_file)
-df = augment_with_review_dates(df_raw)
+if "df" not in st.session_state:
+    st.session_state.df = pd.DataFrame()
 
-st.sidebar.success(f"Loaded {len(df)} agents")
+if uploaded_file:
+    st.session_state.df = pd.read_json(uploaded_file)
 
-# Global filters
-df_filtered = apply_filters(df)
+df = st.session_state.df
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("### Navigate")
+if not df.empty:
+    st.sidebar.success(f"Loaded {len(df)} agents")
+else:
+    st.sidebar.info("Upload a JSON file to begin.")
+    st.stop()
+
+# ---------------------------------------------------------
+# SIDEBAR FILTERS
+# ---------------------------------------------------------
+st.sidebar.subheader("Filter by Risk Level")
+risk_filter = st.sidebar.selectbox(
+    "Risk Level", ["All"] + sorted(df["risk_level"].unique())
+)
+
+st.sidebar.subheader("Filter by Autonomy Level")
+auto_filter = st.sidebar.selectbox(
+    "Autonomy Level", ["All"] + sorted(df["autonomy_level"].unique())
+)
+
+st.sidebar.subheader("Filter by Lifecycle State")
+lifecycle_filter = st.sidebar.selectbox(
+    "Lifecycle State", ["All"] + sorted(df["lifecycle_state"].unique())
+)
+
+# Apply filters
+df_filtered = df.copy()
+
+if risk_filter != "All":
+    df_filtered = df_filtered[df_filtered["risk_level"] == risk_filter]
+
+if auto_filter != "All":
+    df_filtered = df_filtered[df_filtered["autonomy_level"] == auto_filter]
+
+if lifecycle_filter != "All":
+    df_filtered = df_filtered[df_filtered["lifecycle_state"] == lifecycle_filter]
+
+# ---------------------------------------------------------
+# NAVIGATION
+# ---------------------------------------------------------
 page = st.sidebar.radio(
-    "",
+    "Navigate",
     [
-        "Overview",
-        "Insights",
-        "Agents Table",
-        "Agent Detail",
-        "Lifecycle Timeline",
-        "Policy Simulator",
-    ],
-    index=0,
+        "🏠 Overview",
+        "📊 Insights",
+        "📋 Agents Table",
+        "🔍 Agent Detail",
+        "⏳ Lifecycle Timeline",
+        "⚙ Policy Simulator"
+    ]
 )
+# ---------------------------------------------------------
+# HELPER – ENRICH WITH SYNTHETIC REVIEW SCHEDULE
+# ---------------------------------------------------------
+def enrich_with_schedule(df_in: pd.DataFrame) -> pd.DataFrame:
+    """Add synthetic last_reviewed / next_review_due / days_to_next columns."""
+    df_work = df_in.copy().reset_index(drop=True)
+    today = datetime.today().date()
+
+    cadence_days = {
+        "Immediate": 7,
+        "Monthly": 30,
+        "Quarterly": 90,
+        "Semi-Annual": 180,
+        "Semi Annual": 180,
+        "Semiannual": 180,
+        "Annual": 365,
+        "Annually": 365,
+    }
+
+    last_dates = []
+    next_dates = []
+    days_to_next_list = []
+
+    for i, row in df_work.iterrows():
+        cadence = row.get("review_cadence", "Quarterly")
+        step = cadence_days.get(str(cadence), 90)
+
+        # Stagger last review dates in the past
+        last = today - timedelta(days=(i + 1) * 7)
+        next_d = last + timedelta(days=step)
+        days_to_next = (next_d - today).days
+
+        last_dates.append(last)
+        next_dates.append(next_d)
+        days_to_next_list.append(days_to_next)
+
+    df_work["last_reviewed"] = last_dates
+    df_work["next_review_due"] = next_dates
+    df_work["days_to_next"] = days_to_next_list
+    return df_work
 
 
-# ------------------------------------------------------------
-# Overview Page
-# ------------------------------------------------------------
-if page == "Overview":
+# Use the enriched frame for any schedule-related views
+df_sched = enrich_with_schedule(df_filtered)
+
+
+# ---------------------------------------------------------
+# PAGE 1 – OVERVIEW
+# ---------------------------------------------------------
+if page == "🏠 Overview":
     st.title("AI Agent Governance Portal")
-
     st.caption(
-        "Executive dashboard for AI agent risk, autonomy, lifecycle, and overall governance posture."
+        "Executive dashboard for AI agent risk, autonomy, lifecycle, and governance posture."
     )
 
-    # ---------- Top metrics ----------
+    # ---- Top metrics row ----
     total_agents = len(df_filtered)
     high_risk = (df_filtered["risk_level"] == "HIGH RISK").sum()
     medium_risk = (df_filtered["risk_level"] == "MEDIUM RISK").sum()
     low_risk = (df_filtered["risk_level"] == "LOW RISK").sum()
-
     no_autonomy = (df_filtered["autonomy_level"] == "NO_AUTONOMY").sum()
-    human_in_loop = (df_filtered["autonomy_level"] == "HUMAN_IN_LOOP").sum()
-    limited_autonomy = (df_filtered["autonomy_level"] == "LIMITED_AUTONOMY").sum()
     auto_allowed = (df_filtered["autonomy_level"] == "AUTO_ALLOWED").sum()
+    human_in_loop = (df_filtered["autonomy_level"] == "HUMAN_IN_LOOP").sum()
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        metric_block("Total Agents", total_agents)
+        st.markdown('<div class="metric-label">Total Agents</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="small-metric">{total_agents}</div>', unsafe_allow_html=True)
     with c2:
-        metric_block("High Risk", high_risk)
+        st.markdown('<div class="metric-label">High Risk</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="small-metric">{high_risk}</div>', unsafe_allow_html=True)
     with c3:
-        metric_block("Medium Risk", medium_risk)
+        st.markdown('<div class="metric-label">Medium Risk</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="small-metric">{medium_risk}</div>', unsafe_allow_html=True)
     with c4:
-        metric_block("Low Risk", low_risk)
+        st.markdown('<div class="metric-label">Low Risk</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="small-metric">{low_risk}</div>', unsafe_allow_html=True)
 
-    c5, c6, c7, c8 = st.columns(4)
+    c5, c6, c7 = st.columns(3)
     with c5:
-        metric_block("No Autonomy", no_autonomy)
+        st.markdown('<div class="metric-label">No Autonomy</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="small-metric">{no_autonomy}</div>', unsafe_allow_html=True)
     with c6:
-        metric_block("Human-in-Loop", human_in_loop)
+        st.markdown('<div class="metric-label">Human-in-Loop</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="small-metric">{human_in_loop}</div>', unsafe_allow_html=True)
     with c7:
-        metric_block("Limited Autonomy", limited_autonomy)
-    with c8:
-        metric_block("Auto Allowed", auto_allowed)
+        st.markdown('<div class="metric-label">Auto Allowed</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="small-metric">{auto_allowed}</div>', unsafe_allow_html=True)
 
-    st.markdown("---")
+    # ---- Governance posture banner ----
+    overdue_df = df_sched[df_sched["days_to_next"] < 0]
+    num_overdue = len(overdue_df)
+    if num_overdue > 0:
+        overdue_owners = sorted(overdue_df["owner"].unique())
+        owners_str = ", ".join(overdue_owners)
+        st.markdown(
+            f"""
+            <div style="background-color:#ffe6e6;border-left:4px solid #e55353;
+                        padding:10px 16px;margin-top:24px;margin-bottom:12px;">
+                <b>⚠ {num_overdue} agents are overdue for review</b>
+                across <b>{owners_str}</b> — this represents cross-functional governance risk.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    # ---------- Upcoming reviews (next 30 days) ----------
+    # ---- Upcoming reviews (next 30 days) ----
     st.subheader("Upcoming Reviews (next 30 days)")
+    horizon_df = df_sched[df_sched["days_to_next"] <= 30].copy()
+    horizon_df = horizon_df.sort_values("days_to_next")
 
-    upcoming = df_filtered[df_filtered["days_to_next"] <= 30].copy()
-    upcoming = upcoming.sort_values("days_to_next")
-    cols_order = [
-        "agent_name",
-        "owner",
-        "risk_level",
-        "review_cadence",
-        "last_reviewed",
-        "next_review_due",
-        "days_to_next",
-    ]
-    existing = [c for c in cols_order if c in upcoming.columns]
-    st.dataframe(upcoming[existing], use_container_width=True)
-
-    # Export buttons
-    csv = upcoming.to_csv(index=False).encode("utf-8")
-    json_bytes = upcoming.to_json(orient="records", indent=2).encode("utf-8")
-
-    cex1, cex2 = st.columns(2)
-    with cex1:
-        st.download_button(
-            "⬇ Export upcoming reviews (CSV)",
-            data=csv,
-            file_name="upcoming_reviews.csv",
-            mime="text/csv",
-        )
-    with cex2:
-        st.download_button(
-            "⬇ Export upcoming reviews (JSON)",
-            data=json_bytes,
-            file_name="upcoming_reviews.json",
-            mime="application/json",
-        )
-
-    # ---------- Governance posture banner ----------
-    st.markdown("## Governance posture at a glance")
-
-    overdue = df_filtered[df_filtered["days_to_next"] < 0]
-    if not overdue.empty:
-        owners = sorted(overdue["owner"].unique().tolist())
-        owners_text = ", ".join(owners)
-        st.warning(
-            f"⚠ {len(overdue)} agents are overdue for review across {owners_text} "
-            "— this represents cross-functional governance risk."
-        )
+    if horizon_df.empty:
+        st.info("No upcoming reviews in the next 30 days under current filters.")
     else:
-        st.success("✅ No agents are currently overdue for review.")
+        display_cols = [
+            "agent_name",
+            "owner",
+            "risk_level",
+            "review_cadence",
+            "last_reviewed",
+            "next_review_due",
+            "days_to_next",
+        ]
+        st.dataframe(horizon_df[display_cols], use_container_width=True)
 
-    # Mini executive lens
-    horizon_0_7 = df_filtered[(df_filtered["days_to_next"] >= 0) & (df_filtered["days_to_next"] <= 7)]
-    horizon_8_30 = df_filtered[(df_filtered["days_to_next"] > 7) & (df_filtered["days_to_next"] <= 30)]
+        # Export buttons
+        csv_all = horizon_df.to_csv(index=False).encode("utf-8")
+        json_all = horizon_df.to_json(orient="records", indent=2).encode("utf-8")
 
+        cexp1, cexp2 = st.columns(2)
+        with cexp1:
+            st.download_button(
+                "📥 Export upcoming reviews (CSV)",
+                data=csv_all,
+                file_name="upcoming_reviews.csv",
+                mime="text/csv",
+            )
+        with cexp2:
+            st.download_button(
+                "📥 Export upcoming reviews (JSON)",
+                data=json_all,
+                file_name="upcoming_reviews.json",
+                mime="application/json",
+            )
+
+    # ---- Mini-guide on how to read the section ----
     st.markdown(
-        f"""
-- **0–7 day horizon:** {len(horizon_0_7)} agents will need attention **this week**.
-- **8–30 day horizon:** {len(horizon_8_30)} agents are in the **planning runway** — ideal for batching reviews by owner or business unit.
-- Use this to drive **review SLAs**, automated escalations, and dashboards for Security, HR, and IT.
-"""
+        """
+        ### How to read this section
+        - Focus on agents with reviews due in the next **0–7 days** for immediate attention.  
+        - **8–30 day horizon** is your planning runway — where you can batch reviews by owner or business unit.  
+        - Use these metrics to drive **review SLAs**, escalation rules, and dashboards for Security, HR, and IT.
+        """
     )
 
-    # ---------- Risk vs Autonomy heatmap & Risk breakdown ----------
-    st.markdown("---")
-    st.subheader("Risk vs Autonomy view")
+    # ---- Risk vs Autonomy heatmap + Risk breakdown pie ----
+    st.subheader("Governance posture at a glance")
+    col_heat, col_pie = st.columns(2)
 
-    c_heat, c_pie = st.columns([2, 1])
+    # Heatmap data
+    risk_auto = (
+        df_filtered.groupby(["risk_level", "autonomy_level"])
+        .size()
+        .reset_index(name="count")
+    )
 
-    with c_heat:
-        if not df_filtered.empty:
-            risk_auto = (
-                df_filtered.groupby(["risk_level", "autonomy_level"])
-                .size()
-                .reset_index(name="count")
-            )
+    with col_heat:
+        st.markdown("**Risk vs Autonomy Heatmap**")
+        if risk_auto.empty:
+            st.info("No data available for the current filter selection.")
+        else:
             fig_heat = px.density_heatmap(
                 risk_auto,
                 x="autonomy_level",
@@ -293,142 +266,133 @@ if page == "Overview":
             )
             fig_heat.update_layout(margin=dict(l=40, r=10, t=40, b=40))
             st.plotly_chart(fig_heat, use_container_width=True)
-        else:
-            st.info("No data available for heatmap.")
 
-    with c_pie:
-        if not df_filtered.empty:
-            risk_counts = df_filtered["risk_level"].value_counts()
-            fig_pie = go.Figure(
-                data=[
-                    go.Pie(
-                        labels=risk_counts.index.tolist(),
-                        values=risk_counts.values.tolist(),
-                        hole=0.45,
-                    )
-                ]
-            )
-            fig_pie.update_layout(title="Risk distribution", showlegend=True)
-            st.plotly_chart(fig_pie, use_container_width=True)
-        else:
-            st.info("No data available for risk breakdown.")
-
-    # ---------- High-risk spotlight ----------
-    st.markdown("---")
-    st.subheader("High-risk agent spotlight")
-
-    high = df_filtered[df_filtered["risk_level"] == "HIGH RISK"].copy()
-    high = high.sort_values("days_to_next").head(4)
-
-    if high.empty:
-        st.info("No high-risk agents under the current filters.")
-    else:
-        for _, row in high.iterrows():
-            st.markdown(f"### {row['agent_name']}")
-            st.markdown(
-                f"- **Owner:** {row['owner']}\n"
-                f"- **Risk Level:** {row['risk_level']}\n"
-                f"- **Autonomy:** {row['autonomy_level']}\n"
-                f"- **Lifecycle:** {row['lifecycle_state']}\n"
-                f"- **Review cadence:** {row['review_cadence']}\n"
-                f"- **Next review due:** {row['next_review_due']} "
-                f"({row['days_to_next']} days from now)"
-            )
-            st.caption(
-                "Executive lens: high-risk + higher autonomy agents should have clear owners, "
-                "runbooks, and sharply-defined review cadences."
-            )
-            st.markdown("---")
-
-
-# ------------------------------------------------------------
-# Insights Page
-# ------------------------------------------------------------
-elif page == "Insights":
-    st.title("Insights & Governance Lens")
-
-    if df_filtered.empty:
-        st.info("No data under current filters. Reset filters to see insights.")
-    else:
-        # ---------- Insight 1: Portfolio risk mix ----------
-        st.subheader("Insight 1 – Portfolio risk mix")
-
+    with col_pie:
+        st.markdown("**Risk Breakdown**")
         risk_counts = (
-            df_filtered["risk_level"].value_counts().reset_index()
+            df_filtered["risk_level"]
+            .value_counts()
+            .reset_index()
+            .rename(columns={"index": "risk_level", "risk_level": "count"})
         )
-        risk_counts.columns = ["risk_level", "count"]
 
-        fig_bar = px.bar(
+        if risk_counts.empty:
+            st.info("No data available for the current filter selection.")
+        else:
+            # IMPORTANT: no .copy() here – avoids DuplicateError with narwhals
+            fig_pie = px.pie(
+                risk_counts,
+                names="risk_level",
+                values="count",
+                hole=0.45,
+                title="Portfolio risk mix",
+            )
+            fig_pie.update_traces(textinfo="label+percent")
+            fig_pie.update_layout(showlegend=False, margin=dict(l=10, r=10, t=40, b=10))
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+
+# ---------------------------------------------------------
+# PAGE 2 – INSIGHTS (EXECUTIVE LENS)
+# ---------------------------------------------------------
+elif page == "📊 Insights":
+    st.title("📊 Insights & Governance Lens")
+
+    st.subheader("① Portfolio Risk Mix – What story do the numbers tell?")
+    st.markdown(
+        """
+        - **High risk agents** require focused control and predictable review cycles.  
+        - **Medium risk agents** often drive efficiency but carry moderate dependencies.  
+        - **Low risk agents** typically represent automation of low-impact workflows.  
+        """
+    )
+
+    risk_counts = (
+        df_filtered["risk_level"]
+        .value_counts()
+        .reset_index()
+        .rename(columns={"index": "risk_level", "risk_level": "count"})
+    )
+
+    if risk_counts.empty:
+        st.info("No data available under current filters.")
+    else:
+        fig_insight_pie = px.pie(
             risk_counts,
-            x="risk_level",
-            y="count",
-            title="Risk distribution across agents",
-            text_auto=True,
+            names="risk_level",
+            values="count",
+            hole=0.5,
+            title="Risk distribution across the portfolio",
         )
-        fig_bar.update_layout(margin=dict(l=40, r=10, t=40, b=40))
-        st.plotly_chart(fig_bar, use_container_width=True)
+        fig_insight_pie.update_traces(textinfo="label+percent")
+        st.plotly_chart(fig_insight_pie, use_container_width=True)
 
-        st.markdown(
-            """
-**Executive takeaway:**  
-- High-risk agents require focused control and predictable review cycles.  
-- Medium risk agents often drive operational efficiency but carry moderate dependencies.  
-- Low risk agents typically represent automation of low-impact workflows.
-"""
-        )
+    st.markdown(
+        """
+        **Executive takeaway:**  
+        - Ask: *Is the proportion of high-risk agents consistent with our risk appetite?*  
+        - If high-risk share is growing, you may need to **tighten onboarding controls** or **raise review frequency**.
+        """
+    )
 
-        st.markdown("---")
+    # ---- Insight 2 – Autonomy vs Risk ----
+    st.subheader("② Autonomy vs Risk Lens – Where should governance focus first?")
+    risk_auto = (
+        df_filtered.groupby(["risk_level", "autonomy_level"])
+        .size()
+        .reset_index(name="count")
+    )
 
-        # ---------- Insight 2: Autonomy vs risk lens ----------
-        st.subheader("Insight 2 – Autonomy vs risk lens")
-
-        risk_auto = (
-            df_filtered.groupby(["risk_level", "autonomy_level"])
-            .size()
-            .reset_index(name="count")
-        )
-
-        fig_heat = px.density_heatmap(
+    if risk_auto.empty:
+        st.info("No data available under current filters.")
+    else:
+        fig_insight_heat = px.density_heatmap(
             risk_auto,
             x="autonomy_level",
             y="risk_level",
             z="count",
             color_continuous_scale="Blues",
-            title="Where autonomy and risk intersect",
+            title="Hot spots where autonomy and risk intersect",
         )
-        fig_heat.update_layout(margin=dict(l=40, r=10, t=40, b=40))
-        st.plotly_chart(fig_heat, use_container_width=True)
+        fig_insight_heat.update_layout(margin=dict(l=40, r=10, t=40, b=40))
+        st.plotly_chart(fig_insight_heat, use_container_width=True)
+
+    st.markdown(
+        """
+        **Executive takeaway:**  
+        - Focus governance attention on the **top-right quadrant** (HIGH RISK + higher autonomy).  
+        - These agents should have: clear owners, **runbooks**, and **strong guardrails** (approvals, monitoring, rollbacks).
+        """
+    )
+
+    # ---- Insight 3 – Overdue risk and cross-functional implication ----
+    st.subheader("③ Overdue Reviews – Translating gaps into business impact")
+    overdue_df = df_sched[df_sched["days_to_next"] < 0].copy()
+    num_overdue = len(overdue_df)
+
+    if num_overdue == 0:
+        st.success("All agents are within their configured review windows under current filters.")
+    else:
+        overdue_owners = sorted(overdue_df["owner"].unique())
+        owners_str = ", ".join(overdue_owners)
 
         st.markdown(
+            f"""
+            - **{num_overdue} agents are overdue for review.**  
+            - They span **{owners_str}**, indicating a **cross-functional governance gap** rather than a local issue.  
+            - In a real deployment, this would translate into:  
+              - Potential **compliance findings** if audited.  
+              - Need for **automated escalation workflows** (e.g., Slack/JIRA/ServiceNow) triggered by overdue status.  
             """
-**Executive takeaway:**  
-Focus first on the **top-right** (HIGH RISK + high autonomy).  
-Those agents should have: named owners, clear runbooks, strong guardrails, and tighter review SLAs.
-"""
         )
 
-        st.markdown("---")
-
-        # ---------- Insight 3: Three-portal architecture ----------
-        st.subheader("Insight 3 – Governance layer across Security, HR, and IT")
-
-        st.markdown(
-            """
-This portal is designed to sit **above** three operational portals:
-
-- **Security / Compliance portal** – policies, access control, data classification.  
-- **HR / Business portal** – human-in-loop approvals, accountable owners, exception handling.  
-- **IT / Operations portal** – provisioning, observability, rollout / rollback.
-
-You can represent this as a simple architecture diagram (for Mermaid or any diagramming tool):
-
-```mermaid
-flowchart LR
-    Governance["AI Governance Portal"]
-    Sec["Security / Compliance Portal"]
-    HRP["HR / Business Portal"]
-    ITP["IT / Ops Portal"]
-
-    Governance --> Sec
-    Governance --> HRP
-    Governance --> ITP
+    st.markdown(
+        """
+        ---
+        These insights set you up for the remaining pages:
+        - **Agents Table** – operational slice and dice.  
+        - **Agent Detail** – drill-down into a single high-risk agent.  
+        - **Lifecycle Timeline** – how agents move from request → deploy → retire.  
+        - **Policy Simulator** – “what-if” adjustments to cadence, autonomy, and risk.
+        """
+    )
