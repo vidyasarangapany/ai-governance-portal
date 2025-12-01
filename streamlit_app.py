@@ -63,7 +63,11 @@ risk_filter = st.sidebar.selectbox(
     ["All"] + sorted(df["risk_level"].dropna().unique())
 )
 
-aut_filter = st.sidebar.selectbox("Filter by Autonomy Level", ["All"] + sorted(df["autonomy"].unique()))
+aut_filter = st.sidebar.selectbox(
+    "Filter by Autonomy Level",
+    ["All"] + sorted(df["autonomy_level"].unique())
+)
+
 life_filter = st.sidebar.selectbox("Filter by Lifecycle State", ["All"] + sorted(df["lifecycle"].unique()))
 
 # Apply filters
