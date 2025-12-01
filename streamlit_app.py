@@ -306,7 +306,7 @@ fig_pie.update_traces(
 )
 
 st.plotly_chart(fig_pie, use_container_width=True)
-)
+
 
 
 # ---------------------------------------------------------
