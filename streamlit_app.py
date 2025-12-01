@@ -573,6 +573,9 @@ elif page == "💡 Insights":
     st.markdown("---")
     st.subheader("High-level Architecture (Mermaid diagram)")
 
+    st.markdown("---")
+    st.subheader("High-level Architecture (Mermaid diagram)")
+
     st.markdown(
         """
 Copy and paste this into any Mermaid-compatible tool (mermaid.live, Notion, Obsidian) to generate a diagram:
