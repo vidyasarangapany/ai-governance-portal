@@ -53,6 +53,7 @@ REVIEW_OFFSETS_DAYS = {
     "ANNUAL": 365,
 }
 
+
 # -------------------------------------------------------
 # Helpers
 # -------------------------------------------------------
@@ -71,7 +72,6 @@ def load_data_from_file(uploaded_file) -> pd.DataFrame:
     - User upload (Streamlit sidebar), or
     - Local file in the repo.
     """
-
     if uploaded_file is not None:
         data = json.load(uploaded_file)
     else:
@@ -218,6 +218,12 @@ def render_kpis(df: pd.DataFrame):
         st.metric("Auto Allowed", auto_allowed)
 
 
+def get_download_blobs(df: pd.DataFrame):
+    csv_bytes = df.to_csv(index=False).encode("utf-8")
+    json_bytes = df.to_json(orient="records", indent=2).encode("utf-8")
+    return csv_bytes, json_bytes
+
+
 # -------------------------------------------------------
 # Sidebar – controls
 # -------------------------------------------------------
@@ -276,6 +282,7 @@ page = st.sidebar.radio(
     ],
 )
 
+
 # -------------------------------------------------------
 # PAGE: Overview
 # -------------------------------------------------------
@@ -331,6 +338,33 @@ if page == "🏠 Overview":
             ),
             use_container_width=True,
         )
+
+    # ---------------------------------------------------
+    # High-Risk Spotlight (Agent "cards")
+    # ---------------------------------------------------
+    with st.expander("🔥 High-Risk Agent Spotlight", expanded=True):
+        high_risk_agents = (
+            filtered[filtered["risk_level"] == "HIGH RISK"]
+            .sort_values("risk_score", ascending=False)
+            .head(4)
+        )
+
+        if high_risk_agents.empty:
+            st.write("No high-risk agents in the current view.")
+        else:
+            cols = st.columns(len(high_risk_agents))
+            for col, (_, r) in zip(cols, high_risk_agents.iterrows()):
+                with col:
+                    st.markdown(
+                        f"""
+**{r['agent_name']}**
+
+- Owner: `{r.get('owner', 'N/A')}`
+- Autonomy: `{r.get('autonomy_level', 'N/A')}`
+- Review cadence: `{r.get('review_cadence', 'N/A')}`
+- Lifecycle: `{r.get('lifecycle_state', 'N/A')}`
+"""
+                    )
 
     st.markdown("---")
 
@@ -449,6 +483,29 @@ if page == "🏠 Overview":
     else:
         st.info("No lifecycle_state data available.")
 
+    # ---------------------------------------------------
+    # Export current view
+    # ---------------------------------------------------
+    st.markdown("---")
+    st.subheader("Export current view")
+    csv_bytes, json_bytes = get_download_blobs(filtered)
+
+    exp_col1, exp_col2 = st.columns(2)
+    with exp_col1:
+        st.download_button(
+            "⬇️ Download filtered data as CSV",
+            data=csv_bytes,
+            file_name="agents_filtered.csv",
+            mime="text/csv",
+        )
+    with exp_col2:
+        st.download_button(
+            "⬇️ Download filtered data as JSON",
+            data=json_bytes,
+            file_name="agents_filtered.json",
+            mime="application/json",
+        )
+
 
 # -------------------------------------------------------
 # PAGE: Lifecycle Timeline
@@ -517,41 +574,123 @@ elif page == "📋 Agents Table":
             height=600,
         )
 
+        st.markdown("---")
+        st.subheader("Export table data")
+
+        csv_bytes, json_bytes = get_download_blobs(filtered)
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.download_button(
+                "⬇️ Download table as CSV",
+                data=csv_bytes,
+                file_name="agents_table.csv",
+                mime="text/csv",
+            )
+        with col_b:
+            st.download_button(
+                "⬇️ Download table as JSON",
+                data=json_bytes,
+                file_name="agents_table.json",
+                mime="application/json",
+            )
+
 
 # -------------------------------------------------------
 # PAGE: Agent Detail
 # -------------------------------------------------------
 elif page == "🔍 Agent Detail":
     st.title("🔍 Agent Detail View")
-    st.caption("Deep dive for a single agent (filtered by sidebar controls).")
+    st.caption("Deep dive for a single agent (on top of sidebar filters).")
 
     if filtered.empty:
         st.info("No agents available for selected filters.")
     else:
-        agent_list = filtered["agent_name"].unique().tolist()
-        selected = st.selectbox("Choose an agent", agent_list)
+        # Extra filters just for this page
+        with st.expander("Additional filters for this view", expanded=False):
+            owners_available = sorted(filtered["owner"].dropna().unique().tolist())
+            risks_available = sorted(filtered["risk_level"].dropna().unique().tolist())
 
-        row = filtered[filtered["agent_name"] == selected].iloc[0]
+            owner_multi = st.multiselect(
+                "Filter by Owner (optional)", owners_available, default=[]
+            )
+            risk_multi = st.multiselect(
+                "Filter by Risk Level (optional)", risks_available, default=[]
+            )
 
-        st.markdown(f"### {row['agent_name']}")
-        st.write(
-            {
-                "Owner": row.get("owner", ""),
-                "Created By": row.get("created_by", ""),
-                "Risk Level": row.get("risk_level", ""),
-                "Autonomy Level": row.get("autonomy_level", ""),
-                "Review Cadence": row.get("review_cadence", ""),
-                "Lifecycle State": row.get("lifecycle_state", ""),
-                "Last Reviewed (synthetic)": row.get("last_reviewed", ""),
-                "Next Review Due (synthetic)": row.get("next_review_due", ""),
-            }
-        )
+        detail_df = filtered.copy()
+        if owner_multi:
+            detail_df = detail_df[detail_df["owner"].isin(owner_multi)]
+        if risk_multi:
+            detail_df = detail_df[detail_df["risk_level"].isin(risk_multi)]
 
-        st.markdown("#### Governance Notes")
-        st.write(row.get("reasoning", ""))
+        if detail_df.empty:
+            st.info("No agents remain after applying the additional filters.")
+        else:
+            agent_list = detail_df["agent_name"].unique().tolist()
+            selected = st.selectbox("Choose an agent", agent_list)
 
-        st.markdown("#### Recommended Action")
-        st.write(row.get("action", ""))
+            row = detail_df[detail_df["agent_name"] == selected].iloc[0]
+
+            # Summary "card"
+            st.markdown(f"## {row['agent_name']}")
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Risk Level", row.get("risk_level", ""))
+            with col2:
+                st.metric("Autonomy", row.get("autonomy_level", ""))
+            with col3:
+                st.metric("Lifecycle", row.get("lifecycle_state", ""))
+            with col4:
+                st.metric("Review Cadence", row.get("review_cadence", ""))
+
+            st.markdown("---")
+
+            meta_cols = st.columns(3)
+            with meta_cols[0]:
+                st.write("**Owner**")
+                st.write(row.get("owner", ""))
+            with meta_cols[1]:
+                st.write("**Created By**")
+                st.write(row.get("created_by", ""))
+            with meta_cols[2]:
+                st.write("**Synthetic Dates**")
+                st.write(
+                    f"Last reviewed: {row.get('last_reviewed', '')}\n\n"
+                    f"Next review due: {row.get('next_review_due', '')}"
+                )
+
+            st.markdown("---")
+
+            # Collapsible governance notes & actions
+            with st.expander("Governance Notes", expanded=True):
+                st.write(row.get("reasoning", ""))
+
+            with st.expander("Recommended Action", expanded=True):
+                st.write(row.get("action", ""))
+
+            # Single-row export
+            st.markdown("---")
+            st.subheader("Export this agent record")
+
+            single_df = pd.DataFrame([row])
+            csv_bytes, json_bytes = get_download_blobs(single_df)
+
+            c1, c2 = st.columns(2)
+            with c1:
+                st.download_button(
+                    "⬇️ Download as CSV",
+                    data=csv_bytes,
+                    file_name=f"{row['agent_name']}_detail.csv",
+                    mime="text/csv",
+                )
+            with c2:
+                st.download_button(
+                    "⬇️ Download as JSON",
+                    data=json_bytes,
+                    file_name=f"{row['agent_name']}_detail.json",
+                    mime="application/json",
+                )
+
 
 # -------------------------------------------------------
 # PAGE: Insights (Architecture diagram, etc.)
@@ -559,25 +698,53 @@ elif page == "🔍 Agent Detail":
 elif page == "💡 Insights":
     st.title("💡 Governance Insights & Architecture")
 
+    # Executive talking points
     st.subheader("Executive-ready talking points")
-    st.markdown(
     st.markdown(
         """
 - **Single governance layer**: This portal acts as the *control tower* for all AI agents across business units.  
 - **Risk + Autonomy + Lifecycle**: Every agent is tracked across *risk level*, *autonomy mode*, and *lifecycle state*.  
 - **Synthetic review cadence engine**: Today it's demo data, but real review schedules can plug in automatically.  
 - **Ready for enterprise integration**: Security, HR, and IT portals can integrate with this governance engine.
-        """
+"""
     )
+
+    # Collapsible deep-dive sections
+    with st.expander("How synthetic dates & lifecycle are calculated", expanded=False):
+        st.markdown(
+            """
+**Review cadence engine**
+
+- `last_reviewed` dates are distributed over the last few months to create realistic-looking patterns.  
+- `next_review_due` is calculated using the cadence offsets (Immediate, Monthly, Quarterly, etc.).  
+- `days_to_next_review` powers the upcoming-review panel for proactive risk management.
+
+**Lifecycle timeline**
+
+- Each agent is assigned a state-specific duration (Testing, Pilot, Deployed, etc.).  
+- Start dates are staggered to make the timeline visualization easier to scan.
+"""
+        )
+
+    with st.expander("Data dictionary (key fields)", expanded=False):
+        st.markdown(
+            """
+- `agent_name`: Friendly name for the AI agent or automation.  
+- `owner`: Accountable team / function.  
+- `risk_level`: High / Medium / Low (mapped to numeric risk score).  
+- `autonomy_level`: AUTO_ALLOWED, HUMAN_IN_LOOP, LIMITED_AUTONOMY, or NO_AUTONOMY.  
+- `review_cadence`: How often the agent should be reviewed (Immediate, Monthly, Quarterly, etc.).  
+- `lifecycle_state`: DEPLOYED, TESTING, PILOT, RETIRED, DEPRECATED, or ARCHIVED.  
+- `reasoning`: Governance notes explaining why the decision was made.  
+- `action`: Recommended control / follow-up.
+"""
+        )
 
     st.markdown("---")
     st.subheader("High-level Architecture (Mermaid diagram)")
 
-    st.markdown(
-        """
-Copy and paste this into any Mermaid-compatible tool (mermaid.live, Notion, Obsidian) to generate a diagram:
-
-```mermaid
+    # Mermaid diagram string (no backticks inside – we render with st.code)
+    mermaid_diagram = """
 flowchart LR
 
     subgraph DataLayer[Data Sources]
@@ -614,3 +781,10 @@ flowchart LR
     Rules --> GRC
     Reviews --> ITSM
     Audit --> Store
+"""
+
+    st.markdown(
+        "Copy/paste the diagram below into any Mermaid-compatible tool "
+        "(for example **mermaid.live**, Notion, or Obsidian) to render it."
+    )
+    st.code(mermaid_diagram, language="mermaid")
