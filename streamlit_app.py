@@ -312,7 +312,8 @@ st.plotly_chart(fig_pie, use_container_width=True)
 # ---------------------------------------------------------
 # PAGE 2 – INSIGHTS (EXECUTIVE LENS)
 # ---------------------------------------------------------
-elif page == "📊 Insights":
+elif page.strip().startswith("📊"):
+
     st.title("📊 Insights & Governance Lens")
 
     st.subheader("① Portfolio Risk Mix – What story do the numbers tell?")
