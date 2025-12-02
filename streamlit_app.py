@@ -448,17 +448,16 @@ def render_agent_detail(df_filtered):
     st.markdown(f"**Days to Next Review:** {agent['days_to_next']}")
 
 st.markdown("---")
-
-# Mini-governance note
+# Mini-governance note (inside agent loop)
 st.subheader("Governance notes")
 notes = []
 
-if agent["risk_level"] == "HIGH RISK":
+if agent.get("risk_level") == "HIGH RISK":
     notes.append(
         "High-risk agent – ensure clear data classification, logging, and rollback procedures."
     )
 
-# Display notes (correct indentation)
+# Display notes
 if notes:
     for n in notes:
         st.markdown(f"- {n}")
