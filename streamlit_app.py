@@ -447,32 +447,25 @@ def render_agent_detail(df_filtered):
     st.markdown(f"**Next Review Due:** {agent['next_review_due']}")
     st.markdown(f"**Days to Next Review:** {agent['days_to_next']}")
 
-    st.markdown("---")
+st.markdown("---")
 
-    # Mini-governance note
-    st.subheader("Governance notes")
-    notes = []
-    if agent["risk_level"] == "HIGH RISK":
-        notes.append(
-            "High-risk agent – ensure clear data classification, logging, and rollback procedures."
-        )
-    if agent["autonomy_level"] in {"AUTO_ALLOWED", "LIMITED_AUTONOMY"}:
-        notes.append(
-            "Agent has elevated autonomy – confirm guardrails, rate limits, and production change controls."
-        )
-    if agent["lifecycle_state"] in {"TESTING", "PILOT"}:
-        notes.append(
-            "Non-final lifecycle – confirm there is a path to either graduation (deployed) or retirement."
-        )
+# Mini-governance note
+st.subheader("Governance notes")
+notes = []
 
-    if notes:
+if agent["risk_level"] == "HIGH RISK":
+    notes.append(
+        "High-risk agent – ensure clear data classification, logging, and rollback procedures."
+    )
+
+# Display notes (correct indentation)
+if notes:
     for n in notes:
         st.markdown(f"- {n}")
-    else:
+else:
     st.markdown(
         "This agent appears within normal governance thresholds under the current configuration."
     )
-
 
 def render_lifecycle_timeline(df_filtered):
     import pandas as pd
@@ -496,6 +489,7 @@ def render_lifecycle_timeline(df_filtered):
     date_cols = ["requested_date", "approved_date", "testing_start", "deployment_date"]
     for col in date_cols:
         if col in df.columns:
+
             df[col] = pd.to_datetime(df[col], errors="coerce")
         else:
             df[col] = pd.NaT
