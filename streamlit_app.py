@@ -427,74 +427,7 @@ def render_agents_table(df_filtered):
 def render_agent_detail(df_filtered):
     st.title("Agent Detail")
 
-    if df_filtered.empty:
-        st.info("No agents available under the current filters.")
-        return
-
-    names = df_filtered["agent_name"].tolist()
-    selected_name = st.selectbox("Select an agent", names)
-
-    agent = df_filtered[df_filtered["agent_name"] == selected_name].iloc[0]
-
-    st.markdown(f"## {agent['agent_name']}")
-    st.markdown(f"**Owner:** {agent['owner']}")
-    st.markdown(f"**Created by:** {agent['created_by']}")
-    st.markdown(f"**Risk Level:** {agent['risk_level']}")
-    st.markdown(f"**Autonomy Level:** {agent['autonomy_level']}")
-    st.markdown(f"**Review Cadence:** {agent['review_cadence']}")
-    st.markdown(f"**Lifecycle State:** {agent['lifecycle_state']}")
-    st.markdown(f"**Last Reviewed:** {agent['last_reviewed']}")
-    st.markdown(f"**Next Review Due:** {agent['next_review_due']}")
-    st.markdown(f"**Days to Next Review:** {agent['days_to_next']}")
-
-st.markdown("---")
-# Mini-governance note (inside agent loop)
-st.subheader("Governance notes")
-notes = []
-
-if agent.get("risk_level") == "HIGH RISK":
-    notes.append(
-        "High-risk agent – ensure clear data classification, logging, and rollback procedures."
-    )
-
-# Display notes
-if notes:
-    for n in notes:
-        st.markdown(f"- {n}")
-else:
-    st.markdown(
-        "This agent appears within normal governance thresholds under the current configuration."
-    )
-
-def render_lifecycle_timeline(df_filtered):
-    import pandas as pd
-    import plotly.express as px
-
-    st.title("📊 Lifecycle Timeline — Deployment & Governance Insights")
-
-    # ----------------------------------------------------------
-    # Guard clause: nothing to show
-    # ----------------------------------------------------------
-    if df_filtered.empty:
-        st.info("No agents available under the current filters.")
-        return
-
-    # ----------------------------------------------------------
-    # Prepare / normalise data
-    # ----------------------------------------------------------
-    df = df_filtered.copy()
-
-    # Ensure the date columns exist and are datetime
-    date_cols = ["requested_date", "approved_date", "testing_start", "deployment_date"]
-    for col in date_cols:
-        if col in df.columns:
-
-            df[col] = pd.to_datetime(df[col], errors="coerce")
-        else:
-            df[col] = pd.NaT
-
-    # Normalised lifecycle_state column
-    if "lifecycle_state" not in df.columns:
+  
         df["lifecycle_state"] = ""
 
     # ----------------------------------------------------------
