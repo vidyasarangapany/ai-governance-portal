@@ -427,33 +427,42 @@ def render_agents_table(df_filtered):
 def render_agent_detail(df_filtered):
     st.title("Agent Detail")
 
+    # Select an agent
+    names = df_filtered["agent_name"].tolist()
+    selected_name = st.selectbox("Select an agent", names)
+
+    # Retrieve agent row
+    agent = df_filtered[df_filtered["agent_name"] == selected_name].iloc[0]
+
+    # Display basic info
+    st.markdown(f"## {agent['agent_name']}")
+    st.markdown(f"**Owner:** {agent['owner']}")
+    st.markdown(f"**Created by:** {agent['created_by']}")
+    st.markdown(f"**Risk Level:** {agent['risk_level']}")
+    st.markdown(f"**Autonomy Level:** {agent['autonomy_level']}")
+    st.markdown(f"**Review Cadence:** {agent['review_cadence']}")
+    st.markdown(f"**Lifecycle State:** {agent['lifecycle_state']}")
+    st.markdown(f"**Last Reviewed:** {agent['last_reviewed']}")
+    st.markdown(f"**Next Review Due:** {agent['next_review_due']}")
+    st.markdown(f"**Days to Next Review:** {agent['days_to_next']}")
+
+    # Governance notes
+    st.subheader("Governance Notes")
+    notes = []
+
+    if agent.get("risk_level") == "HIGH RISK":
+        notes.append("High-risk agent — ensure data classification, logging, and rollback procedures.")
+
+    if notes:
+        for n in notes:
+            st.markdown(f"- {n}")
+    else:
+        st.markdown("This agent appears within normal governance thresholds.")
+
   
         
 
-    # ----------------------------------------------------------
-    # Derive a pseudo decommissioned date
-    # ----------------------------------------------------------
-    decomm_states = {"RETIRED", "DEPRECATED", "ARCHIVED"}
-    df["decommissioned_date"] = pd.NaT
-    mask_decomm = df["lifecycle_state"].isin(decomm_states)
-
-    # Prefer deployment_date + 30 days
-    df.loc[mask_decomm & df["deployment_date"].notna(), "decommissioned_date"] = (
-        df.loc[mask_decomm & df["deployment_date"].notna(), "deployment_date"] + pd.Timedelta(days=30)
-    )
-
-    # Fallback: approved_date + 60 days
-    fallback = mask_decomm & df["deployment_date"].isna() & df["approved_date"].notna()
-    df.loc[fallback, "decommissioned_date"] = (
-        df.loc[fallback, "approved_date"] + pd.Timedelta(days=60)
-    )
-
-    # ----------------------------------------------------------
-    # Executive summary metrics
-    # ----------------------------------------------------------
-    df["requested_date"] = pd.to_datetime(df["requested_date"], errors="coerce")
-    df["deployment_date"] = pd.to_datetime(df["deployment_date"], errors="coerce")
-
+   
     cutoff_90 = pd.Timestamp.now() - pd.Timedelta(days=90)
 
     # Total activity in last 90 days
