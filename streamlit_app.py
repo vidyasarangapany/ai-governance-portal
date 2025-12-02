@@ -465,10 +465,10 @@ def render_agent_detail(df_filtered):
             "Non-final lifecycle – confirm there is a path to either graduation (deployed) or retirement."
         )
 
-  if notes:
+    if notes:
     for n in notes:
         st.markdown(f"- {n}")
-else:
+    else:
     st.markdown(
         "This agent appears within normal governance thresholds under the current configuration."
     )
