@@ -525,32 +525,7 @@ def render_lifecycle_timeline(df_filtered):
 base_for_90 = df["requested_date"].where(df["requested_date"].notna(), df["deployment_date"])
 total_90 = int((base_for_90 >= cutoff_90).sum())
 
-# Deployed in last 90 days
-deployed_mask = df["deployment_date"].notna()
-deployed_90 = int((df["deployment_date"] >= cutoff_90).sum())
 
-# Decommissioned / retired / deprecated in last 90 days
-retire_cols = []
-for col in ["retired_date", "deprecated_date", "decommissioned_date"]:
-    if col in df:
-        retire_cols.append(col)
-
-if retire_cols:
-    retire_events = df[retire_cols].max(axis=1)
-    decomm_90 = int((retire_events >= cutoff_90).sum())
-else:
-    decomm_90 = 0
-
-# Count in testing
-testing_count = int(df["lifecycle_state"].str.upper().eq("TESTING").sum())
-
-# Average time to deploy
-if "deployment_date" in df:
-    deploy_cycle = (df["deployment_date"] - df["requested_date"]).dt.days
-    deploy_cycle = deploy_cycle.dropna()
-    avg_time_to_deploy = int(round(deploy_cycle.mean())) if not deploy_cycle.empty else None
-else:
-    avg_time_to_deploy = None
 
 # Agents in approval queue: requested/approved but not yet testing/deployed/decommissioned
 in_queue_mask = df["lifecycle_state"].isin({"REQUESTED", "APPROVED"})
