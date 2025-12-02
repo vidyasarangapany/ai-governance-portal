@@ -466,7 +466,13 @@ def render_agent_detail(df_filtered):
         )
 
     if notes:
-        for n in notes:
+    for n in notes:
+        st.markdown(f"- {n}")
+else:
+    st.markdown(
+        "This agent appears within normal governance thresholds under the current configuration."
+    )
+
 def render_lifecycle_timeline(df_filtered):
     import pandas as pd
     import plotly.express as px
