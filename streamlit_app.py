@@ -467,29 +467,22 @@ def render_agent_detail(df_filtered):
 
     if notes:
         for n in notes:
-            st.markdown(f"- {n}")
-    else:
-        st.markdown(
-            "This agent appears within normal governance thresholds under the current configuration."
-        )
-
 def render_lifecycle_timeline(df_filtered):
     import pandas as pd
     import plotly.express as px
 
     st.title("📊 Lifecycle Timeline — Deployment & Governance Insights")
 
-
-    # ------------------------------------------------------------------
+    # ----------------------------------------------------------
     # Guard clause: nothing to show
-    # ------------------------------------------------------------------
+    # ----------------------------------------------------------
     if df_filtered.empty:
         st.info("No agents available under the current filters.")
         return
 
-    # ------------------------------------------------------------------
+    # ----------------------------------------------------------
     # Prepare / normalise data
-    # ------------------------------------------------------------------
+    # ----------------------------------------------------------
     df = df_filtered.copy()
 
     # Ensure the date columns exist and are datetime
@@ -504,74 +497,70 @@ def render_lifecycle_timeline(df_filtered):
     if "lifecycle_state" not in df.columns:
         df["lifecycle_state"] = ""
 
-    # Derive a pseudo decommissioned date from lifecycle_state where needed
+    # ----------------------------------------------------------
+    # Derive a pseudo decommissioned date
+    # ----------------------------------------------------------
     decomm_states = {"RETIRED", "DEPRECATED", "ARCHIVED"}
     df["decommissioned_date"] = pd.NaT
     mask_decomm = df["lifecycle_state"].isin(decomm_states)
 
-   
+    # Prefer deployment_date + 30 days
+    df.loc[mask_decomm & df["deployment_date"].notna(), "decommissioned_date"] = (
+        df.loc[mask_decomm & df["deployment_date"].notna(), "deployment_date"] + pd.Timedelta(days=30)
+    )
 
- # Prefer deployment_date + 30 days
-df.loc[mask_decomm, "decommissioned_date"] = (
-    df.loc[mask_decomm, "deployment_date"] + pd.Timedelta(days=30)
-)
+    # Fallback: approved_date + 60 days
+    fallback = mask_decomm & df["deployment_date"].isna() & df["approved_date"].notna()
+    df.loc[fallback, "decommissioned_date"] = (
+        df.loc[fallback, "approved_date"] + pd.Timedelta(days=60)
+    )
 
-# Fallback: approved_date + 60 days if deployment_date is missing
-fallback = mask_decomm & df["decommissioned_date"].isna()
-df.loc[fallback, "decommissioned_date"] = (
-    df.loc[fallback, "approved_date"] + pd.Timedelta(days=60)
-)
+    # ----------------------------------------------------------
+    # Executive summary metrics
+    # ----------------------------------------------------------
+    df["requested_date"] = pd.to_datetime(df["requested_date"], errors="coerce")
+    df["deployment_date"] = pd.to_datetime(df["deployment_date"], errors="coerce")
 
+    cutoff_90 = pd.Timestamp.now() - pd.Timedelta(days=90)
 
-# --------------------------------------------------------------
-# Executive summary metrics
-# --------------------------------------------------------------
---
+    # Total activity in last 90 days
+    base_for_90 = df["requested_date"].where(df["requested_date"].notna(), df["deployment_date"])
+    total_90 = int((base_for_90 >= cutoff_90).sum())
 
-# "Activity in last 90 days": requested date if available, else any date
-base_for_90 = df["requested_date"].where(df["requested_date"].notna(), df["deployment_date"])
-total_90 = int((base_for_90 >= cutoff_90).sum())
+    # Deployed in last 90 days
+    deployed_90 = int((df["deployment_date"] >= cutoff_90).sum())
 
+    # Decommissioned in last 90 days
+    decomm_90 = int((df["decommissioned_date"] >= cutoff_90).sum())
 
+    # Testing count
+    testing_count = int(df["lifecycle_state"].str.upper().eq("TESTING").sum())
 
-# Agents in approval queue: requested/approved but not yet testing/deployed/decommissioned
-in_queue_mask = df["lifecycle_state"].isin({"REQUESTED", "APPROVED"})
-in_queue = int(in_queue_mask.sum())
+    # Avg time to deploy
+    deploy_cycle = (df["deployment_date"] - df["requested_date"]).dt.days.dropna()
+    avg_time_to_deploy = int(deploy_cycle.mean()) if not deploy_cycle.empty else None
 
-# Lifecycle completion rate
-if retire_cols:
-    completed_mask = deployed_mask | df[retire_cols].notna().any(axis=1)
-else:
-    completed_mask = deployed_mask
+    # Approval queue
+    in_queue = int(df["lifecycle_state"].isin({"REQUESTED", "APPROVED"}).sum())
 
-lifecycle_completion_rate = int(100 * completed_mask.mean()) if len(df) else 0
+    # Lifecycle completion (deployed OR decommissioned)
+    completed_mask = df["deployment_date"].notna() | df["decommissioned_date"].notna()
+    lifecycle_completion_rate = int(100 * completed_mask.mean()) if len(df) else 0
 
-# ------------------------------------------------------------
-# Executive Summary Display
-# ------------------------------------------------------------
+    # ----------------------------------------------------------
+    # Executive Summary Display
+    # ----------------------------------------------------------
+    st.subheader("⭐ Executive Summary")
 
-st.subheader("⭐ Executive Summary")
-
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.metric("Total Agents (last 90 days)", total_90 if total_90 else len(df))
-with c2:
-    st.metric("Deployed (last 90 days)", deployed_90)
-with c3:
-    st.metric("Decommissioned (last 90 days)", decomm_90)
-with c4:
-    st.metric("In Testing", testing_count)
-
-c5, c6, c7 = st.columns(3)
-with c5:
-    st.metric("Average time to deploy", f"{avg_time_to_deploy} days" if avg_time_to_deploy else "-")
-with c6:
-    st.metric("Agents in approval queue", in_queue)
-with c7:
-    st.metric("Lifecycle completion rate", f"{lifecycle_completion_rate}%")
-
-st.divider()
-
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("Total Agents (last 90 days)", total_90)
+    with c2:
+        st.metric("Deployed (last 90 days)", deployed_90)
+    with c3:
+        st.metric("Decommissioned (last 90 days)", decomm_90)
+    with c4:
+        st.metric("In Testing", testing_count)
 
     c5, c6, c7 = st.columns(3)
     with c5:
@@ -582,23 +571,24 @@ st.divider()
     with c6:
         st.metric("Agents in approval queue", in_queue)
     with c7:
-        st.metric("Lifecycle completion rate", f"{lifecycle_completion_rate}%" if lifecycle_completion_rate else "–")
+        st.metric("Lifecycle completion rate", f"{lifecycle_completion_rate}%")
 
     st.divider()
 
-    # ------------------------------------------------------------------
+    # ----------------------------------------------------------
     # How to read this section
-    # ------------------------------------------------------------------
+    # ----------------------------------------------------------
     st.subheader("📘 How to read this section")
     st.markdown(
         """
 - The timeline shows each agent’s journey from request to deployment using dated milestones.
-- Focus on agents stuck in **Testing** for more than 30–45 days — these indicate approval workflow issues that may need executive attention.
-- The lifecycle events can double as evidence for compliance reviews and audit trails.
-- Use deployment velocity and pipeline health to size SLAs and staffing for your AI review process.
-- Decommissioned / retired / deprecated agents demonstrate governance discipline and clean lifecycle closure.
+- Focus on agents stuck in **Testing** for 30–45+ days — these indicate approval bottlenecks.
+- Lifecycle events double as evidence for audit readiness and governance maturity.
+- Use velocity trends to size SLAs and approval staffing.
+- Decommissioned/retired agents demonstrate clean lifecycle closure.
         """
     )
+
 
     # ------------------------------------------------------------------
     # Bottleneck analysis – agents stuck in testing
