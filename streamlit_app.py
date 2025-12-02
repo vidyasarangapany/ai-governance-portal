@@ -512,16 +512,14 @@ def render_lifecycle_timeline(df_filtered):
     # Prefer deployment_date + 30 days
     df.loc[mask_decomm, "decommissioned_date"] = (
         df.loc[mask_decomm, "deployment_date"] + pd.Timedelta(days=30)
-    )
-
-   # Fallback: approved_date + 60 days if deployment_date_date is missing
+ # Fallback: approved_date + 60 days if deployment_date is missing
 fallback = mask_decomm & df["decommissioned_date"].isna()
-df.loc[fallback, "decommissioned_date"] = (
-    df.loc[fallback, "approved_date"] + pd.Timedelta(days=60)
-)
+df.loc[fallback, "decommissioned_date"] = df.loc[fallback, "approved_date"] + pd.Timedelta(days=60)
 
+# --------------------------------------------------------------
 # Executive summary metrics
-# ------------------------------------------------------------
+# --------------------------------------------------------------
+--
 
 # "Activity in last 90 days": requested date if available, else any date
 base_for_90 = df["requested_date"].where(df["requested_date"].notna(), df["deployment_date"])
