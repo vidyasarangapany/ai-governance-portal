@@ -428,7 +428,7 @@ def render_agent_detail(df_filtered):
     st.title("Agent Detail")
 
   
-        df["lifecycle_state"] = ""
+        
 
     # ----------------------------------------------------------
     # Derive a pseudo decommissioned date
