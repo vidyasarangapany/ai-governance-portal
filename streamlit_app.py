@@ -852,8 +852,8 @@ def main():
     elif page == "Policy Simulator":
         render_policy_simulator(df_filtered)
 
-    elif page == "Policy Simulator":
-    render_policy_simulator(df_filtered)
+
+    
 
 # ⬇️ PASTE FUNCTION BELOW THIS LINE
 def render_lifecycle_timeline(df_filtered):
