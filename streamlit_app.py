@@ -35,6 +35,24 @@ def load_agent_data(uploaded_file):
         "lifecycle": "lifecycle_state",
     }
     df = df.rename(columns=rename_map)
+        # ------------------------------------------------------------
+    # Normalize date columns so missing fields do not crash
+    # ------------------------------------------------------------
+    date_columns = [
+        "requested_date",
+        "approved_date",
+        "testing_start",
+        "deployment_date",
+        "pilot_start",
+        "last_reviewed",
+        "next_review_due"
+    ]
+
+    for col in date_columns:
+        if col not in df.columns:
+            df[col] = pd.NaT
+        df[col] = pd.to_datetime(df[col], errors="coerce")
+
 
     required = [
         "agent_name",
@@ -462,36 +480,34 @@ def render_agent_detail(df_filtered):
   
         
 
-   
-    cutoff_90 = pd.Timestamp.now() - pd.Timedelta(days=90)
+     # ------------------------------------------------------------
+    # Safe date handling for the selected agent (prevents NameError)
+    # ------------------------------------------------------------
+    date_fields = [
+        "requested_date",
+        "approved_date",
+        "testing_start",
+        "deployment_date",
+        "pilot_start",
+        "decommissioned_date",
+        "last_reviewed",
+        "next_review_due"
+    ]
 
-    # Total activity in last 90 days
-    base_for_90 = df["requested_date"].where(df["requested_date"].notna(), df["deployment_date"])
-    total_90 = int((base_for_90 >= cutoff_90).sum())
+    for col in date_fields:
+        if col not in agent.index:
+            agent[col] = pd.NaT
+        agent[col] = pd.to_datetime(agent[col], errors="coerce")
 
-    # Deployed in last 90 days
-    deployed_90 = int((df["deployment_date"] >= cutoff_90).sum())
+    # Pick safest base event date for future calculations
+    base_for_90 = agent["requested_date"]
+    if pd.isnull(base_for_90):
+        base_for_90 = agent.get("deployment_date", pd.NaT)
+    if pd.isnull(base_for_90):
+        base_for_90 = agent.get("approved_date", pd.NaT)
+    if pd.isnull(base_for_90):
+        base_for_90 = agent.get("testing_start", pd.NaT)
 
-    # Decommissioned in last 90 days
-    decomm_90 = int((df["decommissioned_date"] >= cutoff_90).sum())
-
-    # Testing count
-    testing_count = int(df["lifecycle_state"].str.upper().eq("TESTING").sum())
-
-    # Avg time to deploy
-    deploy_cycle = (df["deployment_date"] - df["requested_date"]).dt.days.dropna()
-    avg_time_to_deploy = int(deploy_cycle.mean()) if not deploy_cycle.empty else None
-
-    # Approval queue
-    in_queue = int(df["lifecycle_state"].isin({"REQUESTED", "APPROVED"}).sum())
-
-    # Lifecycle completion (deployed OR decommissioned)
-    completed_mask = df["deployment_date"].notna() | df["decommissioned_date"].notna()
-    lifecycle_completion_rate = int(100 * completed_mask.mean()) if len(df) else 0
-
-    # ----------------------------------------------------------
-    # Executive Summary Display
-    # ----------------------------------------------------------
     st.subheader("⭐ Executive Summary")
 
     c1, c2, c3, c4 = st.columns(4)
@@ -827,6 +843,69 @@ def main():
         render_insights(df_filtered)
     elif page == "Agents Table":
         render_agents_table(df_filtered)
+        def render_lifecycle_timeline(df_filtered):
+    import pandas as pd
+    import plotly.express as px
+
+    st.title("📊 Lifecycle Timeline — Deployment & Governance Insights")
+
+    if df_filtered.empty:
+        st.info("No agents available under the current filters.")
+        return
+
+    df = df_filtered.copy()
+
+    # Convert dates safely
+    date_cols = ["requested_date", "approved_date", "testing_start", "deployment_date"]
+    for col in date_cols:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+        else:
+            df[col] = pd.NaT
+
+    # Prepare timeline rows
+    timeline_rows = []
+    for _, row in df.iterrows():
+        steps = [
+            ("Requested", row["requested_date"]),
+            ("Approved", row["approved_date"]),
+            ("Testing", row["testing_start"]),
+            ("Deployed", row["deployment_date"]),
+        ]
+        for state, dt in steps:
+            if pd.notnull(dt):
+                timeline_rows.append(
+                    {"Agent": row["agent_name"], "State": state, "Date": dt}
+                )
+
+    timeline_df = pd.DataFrame(timeline_rows)
+
+    if timeline_df.empty:
+        st.info("No lifecycle events available.")
+        return
+
+    state_order = ["Requested", "Approved", "Testing", "Deployed"]
+
+    fig = px.scatter(
+        timeline_df,
+        x="Date",
+        y="Agent",
+        color="State",
+        symbol="State",
+        category_orders={"State": state_order},
+        hover_data=["State", "Date"],
+    )
+    fig.update_layout(
+        height=500,
+        xaxis_title="Date",
+        yaxis_title="Agent",
+        legend_title="Lifecycle Stage",
+        margin=dict(l=10, r=10, t=40, b=10),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.caption("Shows how each agent progresses from Request → Approval → Testing → Deployment")
+
     elif page == "Agent Detail":
         render_agent_detail(df_filtered)
     elif page == "Lifecycle Timeline":
