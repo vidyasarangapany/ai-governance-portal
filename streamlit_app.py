@@ -843,11 +843,24 @@ def main():
         render_insights(df_filtered)
     elif page == "Agents Table":
         render_agents_table(df_filtered)
-        def render_lifecycle_timeline(df_filtered):
+  
+
+    elif page == "Agent Detail":
+        render_agent_detail(df_filtered)
+    elif page == "Lifecycle Timeline":
+        render_lifecycle_timeline(df_filtered)
+    elif page == "Policy Simulator":
+        render_policy_simulator(df_filtered)
+
+    elif page == "Policy Simulator":
+    render_policy_simulator(df_filtered)
+
+# ⬇️ PASTE FUNCTION BELOW THIS LINE
+def render_lifecycle_timeline(df_filtered):
     import pandas as pd
     import plotly.express as px
 
-    st.title("📊 Lifecycle Timeline — Deployment & Governance Insights")
+    st.title("📊 Lifecycle Timeline – Deployment & Governance Insights")
 
     if df_filtered.empty:
         st.info("No agents available under the current filters.")
@@ -855,7 +868,6 @@ def main():
 
     df = df_filtered.copy()
 
-    # Convert dates safely
     date_cols = ["requested_date", "approved_date", "testing_start", "deployment_date"]
     for col in date_cols:
         if col in df.columns:
@@ -863,7 +875,6 @@ def main():
         else:
             df[col] = pd.NaT
 
-    # Prepare timeline rows
     timeline_rows = []
     for _, row in df.iterrows():
         steps = [
@@ -874,9 +885,11 @@ def main():
         ]
         for state, dt in steps:
             if pd.notnull(dt):
-                timeline_rows.append(
-                    {"Agent": row["agent_name"], "State": state, "Date": dt}
-                )
+                timeline_rows.append({
+                    "Agent": row["agent_name"],
+                    "State": state,
+                    "Date": dt,
+                })
 
     timeline_df = pd.DataFrame(timeline_rows)
 
@@ -893,26 +906,10 @@ def main():
         color="State",
         symbol="State",
         category_orders={"State": state_order},
-        hover_data=["State", "Date"],
+        title="Lifecycle Events Timeline"
     )
-    fig.update_layout(
-        height=500,
-        xaxis_title="Date",
-        yaxis_title="Agent",
-        legend_title="Lifecycle Stage",
-        margin=dict(l=10, r=10, t=40, b=10),
-    )
+
     st.plotly_chart(fig, use_container_width=True)
-
-    st.caption("Shows how each agent progresses from Request → Approval → Testing → Deployment")
-
-    elif page == "Agent Detail":
-        render_agent_detail(df_filtered)
-    elif page == "Lifecycle Timeline":
-        render_lifecycle_timeline(df_filtered)
-    elif page == "Policy Simulator":
-        render_policy_simulator(df_filtered)
-
 
 if __name__ == "__main__":
     main()
