@@ -538,15 +538,7 @@ with c3:
 
 st.divider()
 
-    with c5:
-        st.metric(
-            "Average time to deploy",
-            f"{avg_time_to_deploy} days" if avg_time_to_deploy is not None else "–",
-        )
-    with c6:
-        st.metric("Agents in approval queue", in_queue)
-    with c7:
-        st.metric("Lifecycle completion rate", f"{lifecycle_completion_rate}%")
+    
 
     st.divider()
 
