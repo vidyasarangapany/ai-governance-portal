@@ -511,13 +511,23 @@ def render_agent_detail(df_filtered):
     st.subheader("⭐ Executive Summary")
 
     c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        pass
-    with c2:
-        st.metric("Deployed (last 90 days)", deployed_90)
-    with c3:
-        st.metric("Decommissioned (last 90 days)", decomm_90)
-    with c4:
+    # 90-day calculations (keep these variables for future use)
+total_90 = df_filtered[df_filtered["created_date"] >= cutoff].shape[0]
+deployed_90 = df_filtered[df_filtered["deployment_date"] >= cutoff].shape[0]
+decomm_90 = df_filtered[df_filtered["decommissioned_date"] >= cutoff].shape[0]
+
+# 3-column layout (no metrics shown for individual agent view)
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    pass
+
+with c2:
+    pass
+
+with c3:
+    pass
+
         st.metric("In Testing", testing_count)
 
     c5, c6, c7 = st.columns(3)
