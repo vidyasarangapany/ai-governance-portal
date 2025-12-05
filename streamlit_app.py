@@ -514,8 +514,7 @@ def render_agent_detail(df_filtered):
 # 90-day KPI metrics for the entire dataset
 # ----------------------------------------------------
 cutoff = pd.Timestamp.today() - pd.Timedelta(days=90)
-
-safe = df_filtered.copy()
+safe = df.copy()
 safe["created_date"] = pd.to_datetime(safe.get("created_date"), errors="coerce")
 safe["deployment_date"] = pd.to_datetime(safe.get("deployment_date"), errors="coerce")
 safe["decommissioned_date"] = pd.to_datetime(safe.get("decommissioned_date"), errors="coerce")
