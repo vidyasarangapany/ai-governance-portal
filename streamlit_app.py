@@ -510,23 +510,34 @@ def render_agent_detail(df_filtered):
 
     st.subheader("⭐ Executive Summary")
 
-    c1, c2, c3, c4 = st.columns(4)
-    # 90-day calculations (keep these variables for future use)
-total_90 = df_filtered[df_filtered["created_date"] >= cutoff].shape[0]
-deployed_90 = df_filtered[df_filtered["deployment_date"] >= cutoff].shape[0]
-decomm_90 = df_filtered[df_filtered["decommissioned_date"] >= cutoff].shape[0]
+    # ----------------------------------------------------
+# 90-day KPI metrics for the entire dataset
+# ----------------------------------------------------
+cutoff = pd.Timestamp.today() - pd.Timedelta(days=90)
 
-# 3-column layout (no metrics shown for individual agent view)
+safe = df_filtered.copy()
+safe["created_date"] = pd.to_datetime(safe.get("created_date"), errors="coerce")
+safe["deployment_date"] = pd.to_datetime(safe.get("deployment_date"), errors="coerce")
+safe["decommissioned_date"] = pd.to_datetime(safe.get("decommissioned_date"), errors="coerce")
+
+total_90 = safe[safe["created_date"] >= cutoff].shape[0]
+deployed_90 = safe[safe["deployment_date"] >= cutoff].shape[0]
+decomm_90 = safe[safe["decommissioned_date"] >= cutoff].shape[0]
+
+# Display 3 KPI columns
 c1, c2, c3 = st.columns(3)
 
 with c1:
-    pass
+    st.metric("Total Created (last 90 days)", total_90)
 
 with c2:
-    pass
+    st.metric("Deployed (last 90 days)", deployed_90)
 
 with c3:
-    pass
+    st.metric("Decommissioned (last 90 days)", decomm_90)
+
+st.divider()
+
     with c5:
         st.metric(
             "Average time to deploy",
