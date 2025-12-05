@@ -556,16 +556,14 @@ st.markdown(
 
 
     # ------------------------------------------------------------------
-    # Bottleneck analysis – agents stuck in testing
-    # ------------------------------------------------------------------
-    # --------------------------------------------------------------
+    # ---------------------------------------------------------------
 # Bottleneck analysis – agents stuck in testing
-# --------------------------------------------------------------
-
+# ---------------------------------------------------------------
 stuck_threshold_days = 45
-
-stuck_mask = testing_mask & df["testing_start"].notna() & (
-    (today - df["testing_start"]).dt.days > stuck_threshold_days
+stuck_mask = (
+    testing_mask 
+    & df["testing_start"].notna() 
+    & ((today - df["testing_start"]).dt.days > stuck_threshold_days)
 )
 
 stuck_df = df.loc[stuck_mask].copy()
@@ -573,18 +571,20 @@ stuck_count = len(stuck_df)
 stuck_names = list(stuck_df["agent_name"].dropna().unique())[:3]
 stuck_list_str = ", ".join(stuck_names) if stuck_names else "-"
 
-
-    if stuck_count > 0:
-        # Strategic banner styled like Overview risk banner
-        st.markdown(
-            f"""
-<div style="background-color:#ffecec;border-left:4px solid #e00000;padding:0.9rem 1.1rem;margin-top:1rem;margin-bottom:1rem;">
-<strong>⚠️ Security / Approval Bottleneck:</strong> {stuck_count} agent(s) have been in <code>Testing</code> for more than {stuck_threshold_days} days — e.g. <strong>{stuck_list_str}</strong>.  
+if stuck_count > 0:
+    # Strategic banner styled like Overview risk banner
+    st.markdown(
+        f"""
+<div style="background-color:#ffecce;border-left:4px solid #e00000;
+padding:0.9rem 1.1rem;margin-top:1rem;margin-bottom:1rem;">
+<strong>⚠️ Security / Approval Bottleneck:</strong> {stuck_count} agent(s) 
+have been in <code>Testing</code> for more than {stuck_threshold_days} days.
 This indicates slow approvals and longer deployment cycles for high-risk agents.
 </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        """,
+        unsafe_allow_html=True,
+    )
+
 
     # ------------------------------------------------------------------
     # Agent Lifecycle Progression Timeline (scatter-style Gantt)
