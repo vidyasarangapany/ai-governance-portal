@@ -536,25 +536,23 @@ with c2:
 with c3:
     st.metric("Decommissioned (last 90 days)", decomm_90)
 
-st.divider()
+st.divider()   # KEEP THIS ONE
 
-    
+# --------------------------------------------------------------
+# How to read this section
+# --------------------------------------------------------------
 
-    st.divider()
-
-    # ----------------------------------------------------------
-    # How to read this section
-    # ----------------------------------------------------------
-    st.subheader("📘 How to read this section")
-    st.markdown(
-        """
+st.subheader("📘 How to read this section")
+st.markdown(
+    """
 - The timeline shows each agent’s journey from request to deployment using dated milestones.
 - Focus on agents stuck in **Testing** for 30–45+ days — these indicate approval bottlenecks.
 - Lifecycle events double as evidence for audit readiness and governance maturity.
 - Use velocity trends to size SLAs and approval staffing.
 - Decommissioned/retired agents demonstrate clean lifecycle closure.
-        """
-    )
+    """
+)
+
 
 
     # ------------------------------------------------------------------
