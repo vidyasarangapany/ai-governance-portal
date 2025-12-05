@@ -527,10 +527,6 @@ with c2:
 
 with c3:
     pass
-
-        st.metric("In Testing", testing_count)
-
-    c5, c6, c7 = st.columns(3)
     with c5:
         st.metric(
             "Average time to deploy",
