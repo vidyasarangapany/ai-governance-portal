@@ -512,7 +512,7 @@ def render_agent_detail(df_filtered):
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.metric("Total Agents (last 90 days)", total_90)
+        
     with c2:
         st.metric("Deployed (last 90 days)", deployed_90)
     with c3:
