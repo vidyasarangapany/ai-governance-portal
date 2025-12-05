@@ -1,3 +1,7 @@
+# ============================================================
+# streamlit_app.py  — CLEANED VERSION
+# ============================================================
+
 import json
 from datetime import date, timedelta
 
@@ -11,12 +15,12 @@ import streamlit as st
 # ------------------------------------------------------------
 
 def load_agent_data(uploaded_file):
-    """Load JSON into a pandas DataFrame."""
+    """Load governance_decisions.json into a pandas DataFrame."""
     if uploaded_file is None:
         st.warning("Upload a governance_decisions.json file to get started.")
         return pd.DataFrame()
 
-    # Try JSON first, fall back to pandas read_json
+    # Try json.load first, fall back to pandas.read_json
     try:
         data = json.load(uploaded_file)
     except Exception:
@@ -35,17 +39,20 @@ def load_agent_data(uploaded_file):
         "lifecycle": "lifecycle_state",
     }
     df = df.rename(columns=rename_map)
-        # ------------------------------------------------------------
-    # Normalize date columns so missing fields do not crash
-    # ------------------------------------------------------------
+
+    # --------------------------------------------------------
+    # Normalise date columns so missing fields do not crash
+    # --------------------------------------------------------
     date_columns = [
+        "created_date",       # may or may not exist in file
         "requested_date",
         "approved_date",
         "testing_start",
         "deployment_date",
         "pilot_start",
+        "decommissioned_date",
         "last_reviewed",
-        "next_review_due"
+        "next_review_due",
     ]
 
     for col in date_columns:
@@ -53,7 +60,9 @@ def load_agent_data(uploaded_file):
             df[col] = pd.NaT
         df[col] = pd.to_datetime(df[col], errors="coerce")
 
-
+    # --------------------------------------------------------
+    # Required text columns
+    # --------------------------------------------------------
     required = [
         "agent_name",
         "owner",
@@ -74,7 +83,9 @@ def load_agent_data(uploaded_file):
     for col in required:
         df[col] = df[col].astype(str)
 
-    # Add synthetic scheduling fields for the demo
+    # --------------------------------------------------------
+    # Synthetic review schedule fields for demo
+    # --------------------------------------------------------
     today = date.today()
     cadence_days = {
         "Immediate": 0,
@@ -93,8 +104,8 @@ def load_agent_data(uploaded_file):
         offset_days = (idx + 1) * 7
         last_reviewed = today - timedelta(days=offset_days)
 
-        # Normalise cadence spelling a bit and map to days
-        gap = cadence_days.get(row["review_cadence"].title(), 90)
+        # Normalise cadence spelling and map to days
+        gap = cadence_days.get(str(row["review_cadence"]).title(), 90)
 
         next_review = last_reviewed + timedelta(days=gap)
         days_to_next = (next_review - today).days
@@ -103,15 +114,15 @@ def load_agent_data(uploaded_file):
         next_review_list.append(next_review)
         days_to_next_list.append(days_to_next)
 
-    df["last_reviewed"] = last_reviewed_list
-    df["next_review_due"] = next_review_list
+    df["last_reviewed"] = pd.to_datetime(last_reviewed_list)
+    df["next_review_due"] = pd.to_datetime(next_review_list)
     df["days_to_next"] = days_to_next_list
     df["agent_id"] = range(1, len(df) + 1)
 
     return df
 
 
-def apply_sidebar_filters(df):
+def apply_sidebar_filters(df: pd.DataFrame) -> pd.DataFrame:
     """Apply risk/autonomy/lifecycle filters and return filtered DataFrame."""
     if df.empty:
         return df
@@ -144,7 +155,7 @@ def apply_sidebar_filters(df):
 # Pages
 # ------------------------------------------------------------
 
-def render_overview(df, df_filtered):
+def render_overview(df: pd.DataFrame, df_filtered: pd.DataFrame) -> None:
     st.title("AI Agent Governance Portal")
     st.caption(
         "Executive dashboard for AI agent risk, autonomy, lifecycle, and overall governance posture."
@@ -312,7 +323,7 @@ def render_overview(df, df_filtered):
             )
 
 
-def render_insights(df_filtered):
+def render_insights(df_filtered: pd.DataFrame) -> None:
     st.title("Insights and Governance Lens")
 
     if df_filtered.empty:
@@ -397,9 +408,7 @@ def render_insights(df_filtered):
         "- A heavy concentration in testing or pilot suggests experimentation without graduation criteria.\n"
         "- Retired or archived agents should have access fully removed and logs retained for audit.\n"
     )
-
-
-def render_agents_table(df_filtered):
+def render_agents_table(df_filtered: pd.DataFrame) -> None:
     st.title("Agents Table")
 
     if df_filtered.empty:
@@ -422,7 +431,9 @@ def render_agents_table(df_filtered):
 
     csv_bytes = df_filtered[display_cols].to_csv(index=False).encode("utf-8")
     json_bytes = (
-        df_filtered[display_cols].to_json(orient="records", indent=2).encode("utf-8")
+        df_filtered[display_cols]
+        .to_json(orient="records", indent=2)
+        .encode("utf-8")
     )
 
     col1, col2 = st.columns(2)
@@ -442,14 +453,18 @@ def render_agents_table(df_filtered):
         )
 
 
-def render_agent_detail(df_filtered):
+def render_agent_detail(df_filtered: pd.DataFrame) -> None:
     st.title("Agent Detail")
+
+    if df_filtered.empty:
+        st.info("No agents available under the current filters.")
+        return
 
     # Select an agent
     names = df_filtered["agent_name"].tolist()
     selected_name = st.selectbox("Select an agent", names)
 
-    # Retrieve agent row
+    # Retrieve agent row (Series)
     agent = df_filtered[df_filtered["agent_name"] == selected_name].iloc[0]
 
     # Display basic info
@@ -469,7 +484,19 @@ def render_agent_detail(df_filtered):
     notes = []
 
     if agent.get("risk_level") == "HIGH RISK":
-        notes.append("High-risk agent — ensure data classification, logging, and rollback procedures.")
+        notes.append(
+            "High-risk agent — ensure data classification, logging, and rollback procedures."
+        )
+
+    if agent.get("autonomy_level") == "AUTO_ALLOWED":
+        notes.append(
+            "Auto-allowed agent — verify guardrails, escalation paths, and monitoring are documented."
+        )
+
+    if agent.get("lifecycle_state") in {"PILOT", "TESTING"}:
+        notes.append(
+            "Non-production lifecycle state — confirm clear graduation / rollback criteria."
+        )
 
     if notes:
         for n in notes:
@@ -477,12 +504,9 @@ def render_agent_detail(df_filtered):
     else:
         st.markdown("This agent appears within normal governance thresholds.")
 
-  
-        
-
-        # ------------------------------------------------------------
-    # Safe date handling for the selected agent (prevents NameError)
-    # ------------------------------------------------------------
+    # --------------------------------------------------------
+    # Safe date handling for this agent (no NameError)
+    # --------------------------------------------------------
     date_fields = [
         "requested_date",
         "approved_date",
@@ -491,101 +515,68 @@ def render_agent_detail(df_filtered):
         "pilot_start",
         "decommissioned_date",
         "last_reviewed",
-        "next_review_due"
+        "next_review_due",
     ]
 
+    # Ensure all date fields exist and are datetime
     for col in date_fields:
         if col not in agent.index:
             agent[col] = pd.NaT
         agent[col] = pd.to_datetime(agent[col], errors="coerce")
 
-    # Pick safest base event date for future calculations
-    base_for_90 = agent["requested_date"]
-    if pd.isnull(base_for_90):
-        base_for_90 = agent.get("deployment_date", pd.NaT)
-    if pd.isnull(base_for_90):
-        base_for_90 = agent.get("approved_date", pd.NaT)
-    if pd.isnull(base_for_90):
-        base_for_90 = agent.get("testing_start", pd.NaT)
+    # Pick a base event date for simple age metric
+    base_date = agent.get("requested_date")
+    if pd.isnull(base_date):
+        base_date = agent.get("deployment_date")
+    if pd.isnull(base_date):
+        base_date = agent.get("approved_date")
+    if pd.isnull(base_date):
+        base_date = agent.get("testing_start")
 
-    st.subheader("⭐ Executive Summary")
+    st.subheader("📌 Lifecycle Snapshot")
 
-    # ----------------------------------------------------
-    # 90-day KPI metrics for the entire dataset
-    # ----------------------------------------------------
-    cutoff = pd.Timestamp.today() - pd.Timedelta(days=90)
-    safe = df_filtered.copy()
+    col_a, col_b, col_c = st.columns(3)
 
-    safe["created_date"] = pd.to_datetime(safe.get("created_date"), errors="coerce")
-    safe["deployment_date"] = pd.to_datetime(safe.get("deployment_date"), errors="coerce")
-    safe["decommissioned_date"] = pd.to_datetime(safe.get("decommissioned_date"), errors="coerce")
+    with col_a:
+        if pd.notnull(base_date):
+            days_since_base = (pd.Timestamp.today() - base_date).days
+            st.metric("Days since first governance event", days_since_base)
+        else:
+            st.metric("Days since first governance event", "N/A")
 
-    total_90 = safe[safe["created_date"] >= cutoff].shape[0]
-    deployed_90 = safe[safe["deployment_date"] >= cutoff].shape[0]
-    decomm_90 = safe[safe["decommissioned_date"] >= cutoff].shape[0]
+    with col_b:
+        if pd.notnull(agent.get("deployment_date")):
+            st.metric("Deployment date", str(agent["deployment_date"].date()))
+        else:
+            st.metric("Deployment date", "Not deployed")
 
-    # Display 3 KPI columns
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("Total Created (last 90 days)", total_90)
-    with c2:
-        st.metric("Deployed (last 90 days)", deployed_90)
-    with c3:
-        st.metric("Decommissioned (last 90 days)", decomm_90)
+    with col_c:
+        if pd.notnull(agent.get("decommissioned_date")):
+            st.metric("Decommissioned", str(agent["decommissioned_date"].date()))
+        else:
+            st.metric("Decommissioned", "Active / Not retired")
+# ------------------------------------------------------------
+# Lifecycle timeline page (scatter-style Gantt)
+# ------------------------------------------------------------
 
-    st.divider()
+def render_lifecycle_timeline(df_filtered: pd.DataFrame) -> None:
+    st.title("📊 Lifecycle Timeline – Deployment & Governance Insights")
 
-    # --------------------------------------------------------------
-    # How to read this section
-    # --------------------------------------------------------------
-    st.subheader("📘 How to read this section")
-    st.markdown(
-        """
-- The timeline shows each agent’s journey from request to deployment using dated milestones.
-- Focus on agents stuck in **Testing** for 30–45+ days — these indicate approval bottlenecks.
-- Lifecycle events double as evidence for audit readiness and governance maturity.
-- Use velocity trends to size SLAs and approval staffing.
-- Decommissioned/retired agents demonstrate clean lifecycle closure.
-        """
-    )
+    if df_filtered.empty:
+        st.info("No agents available under the current filters.")
+        return
 
-    # --------------------------------------------------------------
-    # Bottleneck analysis – agents stuck in testing
-    # --------------------------------------------------------------
-    stuck_threshold_days = 45
-    stuck_mask = (
-        testing_mask
-        & df_filtered["testing_start"].notna()
-        & ((today - df_filtered["testing_start"]).dt.days > stuck_threshold_days)
-    )
+    df = df_filtered.copy()
 
-    stuck_df = df_filtered.loc[stuck_mask].copy()
-    stuck_count = len(stuck_df)
-    stuck_names = list(stuck_df["agent_name"].dropna().unique())[:3]
-    stuck_list_str = ", ".join(stuck_names) if stuck_names else "-"
-
-    if stuck_count > 0:
-        st.markdown(
-            f"""
-<div style="background-color:#ffecce;border-left:4px solid #e00000;
-padding:0.9rem 1.1rem;margin-top:1rem;margin-bottom:1rem;">
-<strong>⚠️ Security / Approval Bottleneck:</strong> {stuck_count} agent(s) 
-have been in <code>Testing</code> for more than {stuck_threshold_days} days.
-This indicates slow approvals and longer deployment cycles for high-risk agents.
-</div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    # --------------------------------------------------------------
-    # Agent Lifecycle Progression Timeline (scatter-style Gantt)
-    # --------------------------------------------------------------
-    st.subheader("📈 Agent Lifecycle Progression Timeline")
-    st.caption("Lifecycle Timeline (Requested → Approved → Testing → Deployed)")
+    date_cols = ["requested_date", "approved_date", "testing_start", "deployment_date"]
+    for col in date_cols:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+        else:
+            df[col] = pd.NaT
 
     timeline_rows = []
-    for _, row in df_filtered.iterrows():
-        agent_name = row.get("agent_name", "")
+    for _, row in df.iterrows():
         steps = [
             ("Requested", row.get("requested_date")),
             ("Approved", row.get("approved_date")),
@@ -595,161 +586,46 @@ This indicates slow approvals and longer deployment cycles for high-risk agents.
         for state, dt in steps:
             if pd.notnull(dt):
                 timeline_rows.append(
-                    {"Agent": agent_name, "State": state, "Date": dt}
-                )
-
-                        
+                    {
+                        "Agent": row.get("agent_name", ""),
+                        "State": state,
                         "Date": dt,
                     }
                 )
 
     timeline_df = pd.DataFrame(timeline_rows)
 
-    if not timeline_df.empty:
-        state_order = ["Requested", "Approved", "Testing", "Deployed"]
+    if timeline_df.empty:
+        st.info("No lifecycle events available.")
+        return
 
-        fig = px.scatter(
-            timeline_df,
-            x="Date",
-            y="Agent",
-            color="State",
-            symbol="State",
-            category_orders={"State": state_order},
-            hover_data=["State", "Date"],
-        )
-        fig.update_layout(
-            height=500,
-            xaxis_title="Date",
-            yaxis_title="Agent",
-            legend_title="Lifecycle state",
-            margin=dict(l=10, r=10, t=40, b=10),
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No lifecycle events with dates are available to plot.")
+    state_order = ["Requested", "Approved", "Testing", "Deployed"]
 
-    # ------------------------------------------------------------------
-    # Lifecycle health indicators – cards
-    # ------------------------------------------------------------------
-    st.subheader("🩺 Lifecycle health indicators")
-
-    h1, h2, h3 = st.columns(3)
-
-    with h1:
-        st.markdown("**🔴 Approval bottleneck**")
-        st.write(f"{stuck_count} agent(s) in Testing for more than {stuck_threshold_days} days.")
-        if stuck_names:
-            st.write("Examples: " + ", ".join(stuck_names))
-
-    with h2:
-        st.markdown("**⚠️ Deployment velocity**")
-        deployed_df = df.loc[deployed_mask & df["deployment_date"].notna()].copy()
-        if not deployed_df.empty:
-            deployed_df["deploy_quarter"] = deployed_df["deployment_date"].dt.to_period("Q")
-            q_counts = (
-                deployed_df.groupby("deploy_quarter")["agent_name"]
-                .count()
-                .sort_index()
-            )
-            last_q = q_counts.tail(3)
-            if not last_q.empty:
-                lines = [f"- {str(idx)}: {val} deployed" for idx, val in last_q.items()]
-                st.markdown("\n".join(lines))
-            else:
-                st.write("Insufficient deployment history.")
-        else:
-            st.write("No deployed agents with dates available.")
-
-    with h3:
-        st.markdown("**🟢 Decommissioning discipline**")
-        st.write(f"{decomm_90} agent(s) decommissioned in the last 90 days.")
-        if decomm_90 == 0:
-            st.write("No recent decommissions – review whether legacy agents need formal retirement.")
-
-    # ------------------------------------------------------------------
-    # Export lifecycle events
-    # ------------------------------------------------------------------
-    st.subheader("📤 Export lifecycle events")
-
-    if not timeline_df.empty:
-        export_cols = ["Agent", "State", "Date"]
-        export_df = timeline_df[export_cols].sort_values(["Agent", "Date"])
-
-        csv_bytes = export_df.to_csv(index=False).encode("utf-8")
-        json_bytes = export_df.to_json(orient="records", indent=2).encode("utf-8")
-
-        e1, e2 = st.columns(2)
-        with e1:
-            st.download_button(
-                "Download lifecycle events (CSV)",
-                csv_bytes,
-                file_name="lifecycle_events.csv",
-                mime="text/csv",
-            )
-        with e2:
-            st.download_button(
-                "Download lifecycle events (JSON)",
-                json_bytes,
-                file_name="lifecycle_events.json",
-                mime="application/json",
-            )
-    else:
-        st.info("No dated lifecycle events to export yet.")
-
-    # ------------------------------------------------------------------
-    # Executive takeaway – director-level summary
-    # ------------------------------------------------------------------
-    st.subheader("🧭 Executive takeaway")
-
-    strengths_lines = []
-    if deployed_90:
-        strengths_lines.append(
-            f"- Deployment velocity is healthy with **{deployed_90} agent(s)** deployed in the last 90 days."
-        )
-    if decomm_90:
-        strengths_lines.append(
-            f"- Governance discipline is visible with **{decomm_90} formal decommission(s)** in the last 90 days."
-        )
-    if lifecycle_completion_rate:
-        strengths_lines.append(
-            f"- **{lifecycle_completion_rate}%** lifecycle completion rate shows that most agents make it through to deployment or clean retirement."
-        )
-
-    risks_lines = []
-    if stuck_count:
-        risks_lines.append(
-            f"- **{stuck_count} agent(s)** stuck in Testing beyond {stuck_threshold_days} days indicate an approval bottleneck and extended risk window."
-        )
-    if in_queue:
-        risks_lines.append(
-            f"- **{in_queue} agent(s)** sitting in the approval queue suggest that review capacity may become a constraint as you scale."
-        )
-
-    if not strengths_lines:
-        strengths_lines.append("- Baseline lifecycle data is captured, enabling future trend analysis.")
-    if not risks_lines:
-        risks_lines.append("- No major lifecycle bottlenecks detected with current filters.")
-
-    st.markdown(
-        f"""
-**Strengths**
-
-{chr(10).join(strengths_lines)}
-
-**Risks / Opportunities**
-
-{chr(10).join(risks_lines)}
-
-**Recommended next steps**
-
-1. Set explicit SLAs for Testing and approval stages (for example, 7–14 days depending on risk level).
-2. Monitor agents breaching those SLAs using this timeline view and escalate to owning teams.
-3. As volume increases, automate approvals for low-risk / low-autonomy agents while keeping stronger controls on high-risk ones.
-4. Continue to enforce clean decommissioning – retired, deprecated, or archived agents should always have a clear end date and audit trail.
-        """
+    fig = px.scatter(
+        timeline_df,
+        x="Date",
+        y="Agent",
+        color="State",
+        symbol="State",
+        category_orders={"State": state_order},
+        title="Lifecycle Events Timeline",
+    )
+    fig.update_layout(
+        height=500,
+        margin=dict(l=10, r=10, t=40, b=10),
+        legend_title="Lifecycle state",
+        xaxis_title="Date",
+        yaxis_title="Agent",
     )
 
-def render_policy_simulator(df_filtered):
+    st.plotly_chart(fig, use_container_width=True)
+
+
+# ------------------------------------------------------------
+# Policy simulator
+# ------------------------------------------------------------
+
+def render_policy_simulator(df_filtered: pd.DataFrame) -> None:
     st.title("Policy Simulator")
 
     if df_filtered.empty:
@@ -757,7 +633,8 @@ def render_policy_simulator(df_filtered):
         return
 
     st.markdown(
-        "This simple simulator lets you test how tightening review cadences could change the backlog of reviews."
+        "This simple simulator lets you test how tightening review cadences "
+        "could change the backlog of reviews."
     )
 
     risk_choice = st.selectbox(
@@ -847,8 +724,6 @@ def main():
         render_insights(df_filtered)
     elif page == "Agents Table":
         render_agents_table(df_filtered)
-  
-
     elif page == "Agent Detail":
         render_agent_detail(df_filtered)
     elif page == "Lifecycle Timeline":
@@ -856,64 +731,6 @@ def main():
     elif page == "Policy Simulator":
         render_policy_simulator(df_filtered)
 
-
-    
-
-# ⬇️ PASTE FUNCTION BELOW THIS LINE
-def render_lifecycle_timeline(df_filtered):
-    import pandas as pd
-    import plotly.express as px
-
-    st.title("📊 Lifecycle Timeline – Deployment & Governance Insights")
-
-    if df_filtered.empty:
-        st.info("No agents available under the current filters.")
-        return
-
-    df = df_filtered.copy()
-
-    date_cols = ["requested_date", "approved_date", "testing_start", "deployment_date"]
-    for col in date_cols:
-        if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce")
-        else:
-            df[col] = pd.NaT
-
-    timeline_rows = []
-    for _, row in df.iterrows():
-        steps = [
-            ("Requested", row["requested_date"]),
-            ("Approved", row["approved_date"]),
-            ("Testing", row["testing_start"]),
-            ("Deployed", row["deployment_date"]),
-        ]
-        for state, dt in steps:
-            if pd.notnull(dt):
-                timeline_rows.append({
-                    "Agent": row["agent_name"],
-                    "State": state,
-                    "Date": dt,
-                })
-
-    timeline_df = pd.DataFrame(timeline_rows)
-
-    if timeline_df.empty:
-        st.info("No lifecycle events available.")
-        return
-
-    state_order = ["Requested", "Approved", "Testing", "Deployed"]
-
-    fig = px.scatter(
-        timeline_df,
-        x="Date",
-        y="Agent",
-        color="State",
-        symbol="State",
-        category_orders={"State": state_order},
-        title="Lifecycle Events Timeline"
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
 
 if __name__ == "__main__":
     main()
