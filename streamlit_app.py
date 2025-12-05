@@ -662,8 +662,16 @@ def render_policy_simulator(df_filtered: pd.DataFrame) -> None:
     }
     gap = cadence_days[new_cadence]
 
-    simulated_next = subset["last_reviewed"].apply(lambda d: d + timedelta(days=gap))
-    simulated_days_to_next = simulated_next.apply(lambda d: (d - today).days)
+    # Safe add: if last_reviewed is NaT → treat as today
+simulated_next = subset["last_reviewed"].apply(
+    lambda d: (d if pd.notnull(d) else today) + timedelta(days=gap)
+)
+
+# Safe compute: if simulated_next is NaT → return None
+simulated_days_to_next = simulated_next.apply(
+    lambda d: (d - today).days if pd.notnull(d) else None
+)
+
 
     col1, col2 = st.columns(2)
     col1.metric(
