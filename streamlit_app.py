@@ -480,7 +480,7 @@ def render_agent_detail(df_filtered):
   
         
 
-     # ------------------------------------------------------------
+        # ------------------------------------------------------------
     # Safe date handling for the selected agent (prevents NameError)
     # ------------------------------------------------------------
     date_fields = [
@@ -511,103 +511,94 @@ def render_agent_detail(df_filtered):
     st.subheader("⭐ Executive Summary")
 
     # ----------------------------------------------------
-# 90-day KPI metrics for the entire dataset
-# ----------------------------------------------------
-cutoff = pd.Timestamp.today() - pd.Timedelta(days=90)
-safe = df.copy()
-safe["created_date"] = pd.to_datetime(safe.get("created_date"), errors="coerce")
-safe["deployment_date"] = pd.to_datetime(safe.get("deployment_date"), errors="coerce")
-safe["decommissioned_date"] = pd.to_datetime(safe.get("decommissioned_date"), errors="coerce")
+    # 90-day KPI metrics for the entire dataset
+    # ----------------------------------------------------
+    cutoff = pd.Timestamp.today() - pd.Timedelta(days=90)
+    safe = df_filtered.copy()
 
-total_90 = safe[safe["created_date"] >= cutoff].shape[0]
-deployed_90 = safe[safe["deployment_date"] >= cutoff].shape[0]
-decomm_90 = safe[safe["decommissioned_date"] >= cutoff].shape[0]
+    safe["created_date"] = pd.to_datetime(safe.get("created_date"), errors="coerce")
+    safe["deployment_date"] = pd.to_datetime(safe.get("deployment_date"), errors="coerce")
+    safe["decommissioned_date"] = pd.to_datetime(safe.get("decommissioned_date"), errors="coerce")
 
-# Display 3 KPI columns
-c1, c2, c3 = st.columns(3)
+    total_90 = safe[safe["created_date"] >= cutoff].shape[0]
+    deployed_90 = safe[safe["deployment_date"] >= cutoff].shape[0]
+    decomm_90 = safe[safe["decommissioned_date"] >= cutoff].shape[0]
 
-with c1:
-    st.metric("Total Created (last 90 days)", total_90)
+    # Display 3 KPI columns
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.metric("Total Created (last 90 days)", total_90)
+    with c2:
+        st.metric("Deployed (last 90 days)", deployed_90)
+    with c3:
+        st.metric("Decommissioned (last 90 days)", decomm_90)
 
-with c2:
-    st.metric("Deployed (last 90 days)", deployed_90)
+    st.divider()
 
-with c3:
-    st.metric("Decommissioned (last 90 days)", decomm_90)
-
-st.divider()   # KEEP THIS ONE
-
-# --------------------------------------------------------------
-# How to read this section
-# --------------------------------------------------------------
-
-st.subheader("📘 How to read this section")
-st.markdown(
-    """
+    # --------------------------------------------------------------
+    # How to read this section
+    # --------------------------------------------------------------
+    st.subheader("📘 How to read this section")
+    st.markdown(
+        """
 - The timeline shows each agent’s journey from request to deployment using dated milestones.
 - Focus on agents stuck in **Testing** for 30–45+ days — these indicate approval bottlenecks.
 - Lifecycle events double as evidence for audit readiness and governance maturity.
 - Use velocity trends to size SLAs and approval staffing.
 - Decommissioned/retired agents demonstrate clean lifecycle closure.
-    """
-)
+        """
+    )
 
+    # --------------------------------------------------------------
+    # Bottleneck analysis – agents stuck in testing
+    # --------------------------------------------------------------
+    stuck_threshold_days = 45
+    stuck_mask = (
+        testing_mask
+        & df_filtered["testing_start"].notna()
+        & ((today - df_filtered["testing_start"]).dt.days > stuck_threshold_days)
+    )
 
+    stuck_df = df_filtered.loc[stuck_mask].copy()
+    stuck_count = len(stuck_df)
+    stuck_names = list(stuck_df["agent_name"].dropna().unique())[:3]
+    stuck_list_str = ", ".join(stuck_names) if stuck_names else "-"
 
-    # ------------------------------------------------------------------
-    # ---------------------------------------------------------------
-# Bottleneck analysis – agents stuck in testing
-# ---------------------------------------------------------------
-stuck_threshold_days = 45
-stuck_mask = (
-    testing_mask 
-    & df["testing_start"].notna() 
-    & ((today - df["testing_start"]).dt.days > stuck_threshold_days)
-)
-
-stuck_df = df.loc[stuck_mask].copy()
-stuck_count = len(stuck_df)
-stuck_names = list(stuck_df["agent_name"].dropna().unique())[:3]
-stuck_list_str = ", ".join(stuck_names) if stuck_names else "-"
-
-if stuck_count > 0:
-    # Strategic banner styled like Overview risk banner
-    st.markdown(
-        f"""
+    if stuck_count > 0:
+        st.markdown(
+            f"""
 <div style="background-color:#ffecce;border-left:4px solid #e00000;
 padding:0.9rem 1.1rem;margin-top:1rem;margin-bottom:1rem;">
 <strong>⚠️ Security / Approval Bottleneck:</strong> {stuck_count} agent(s) 
 have been in <code>Testing</code> for more than {stuck_threshold_days} days.
 This indicates slow approvals and longer deployment cycles for high-risk agents.
 </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
 
-
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
     # Agent Lifecycle Progression Timeline (scatter-style Gantt)
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
     st.subheader("📈 Agent Lifecycle Progression Timeline")
     st.caption("Lifecycle Timeline (Requested → Approved → Testing → Deployed)")
 
     timeline_rows = []
-    for _, row in df.iterrows():
-        agent = row.get("agent_name", "")
-
+    for _, row in df_filtered.iterrows():
+        agent_name = row.get("agent_name", "")
         steps = [
             ("Requested", row.get("requested_date")),
             ("Approved", row.get("approved_date")),
             ("Testing", row.get("testing_start")),
             ("Deployed", row.get("deployment_date")),
         ]
-
         for state, dt in steps:
             if pd.notnull(dt):
                 timeline_rows.append(
-                    {
-                        "Agent": agent,
-                        "State": state,
+                    {"Agent": agent_name, "State": state, "Date": dt}
+                )
+
+                        
                         "Date": dt,
                     }
                 )
