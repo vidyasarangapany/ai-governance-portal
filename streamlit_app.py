@@ -558,14 +558,21 @@ st.markdown(
     # ------------------------------------------------------------------
     # Bottleneck analysis – agents stuck in testing
     # ------------------------------------------------------------------
-    stuck_threshold_days = 45
-    stuck_mask = testing_mask & df["testing_start"].notna() & (
-        (today - df["testing_start"]).dt.days > stuck_threshold_days
-    )
-    stuck_df = df.loc[stuck_mask].copy()
-    stuck_count = len(stuck_df)
-    stuck_names = list(stuck_df["agent_name"].dropna().unique())[:3]
-    stuck_list_str = ", ".join(stuck_names) if stuck_names else "—"
+    # --------------------------------------------------------------
+# Bottleneck analysis – agents stuck in testing
+# --------------------------------------------------------------
+
+stuck_threshold_days = 45
+
+stuck_mask = testing_mask & df["testing_start"].notna() & (
+    (today - df["testing_start"]).dt.days > stuck_threshold_days
+)
+
+stuck_df = df.loc[stuck_mask].copy()
+stuck_count = len(stuck_df)
+stuck_names = list(stuck_df["agent_name"].dropna().unique())[:3]
+stuck_list_str = ", ".join(stuck_names) if stuck_names else "-"
+
 
     if stuck_count > 0:
         # Strategic banner styled like Overview risk banner
